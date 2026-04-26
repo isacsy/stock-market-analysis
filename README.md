@@ -1,8 +1,34 @@
+# Isabel Chong Sui Ying – Financial Analysis Portfolio
+
+Hello and welcome.
+This is my personal financial analysis portfolio, where I showcase my projects related to finance, business and data-driven insights.
+
+## About Me
+My name is Isabel Chong Sui Ying, and I was born and raised in Sabah, Malaysia.
+
+I am currently pursuing a Bachelor’s Degree in Finance at Universiti Tunku Abdul Rahman(UTAR), Kampar, Perak, Malaysia. 
+
+I am particularly interested in areas related to:
+- Business & Financial Analytics 
+- Data-driven decision making
+
+Language spoken: 
+- English (Upper-Intermediate)
+- Chinese (Native)
+- Malay (Intermediate)
+
+Contact:
+- LinkedIn: www.linkedin.com/in/isabel-chong-a42459289
+- E-Mail: itzisacsy@gmail.com
+- GitHub: https://github.com/isacsy
+
+# About this project
+ 
 # stock-market-analysis
 Analyzing stock market data to evaluate performance, risk, and investment insights using Excel and SQL
 
 
-#Apple Stock Analysis (24 Apr 2025 – 24 Apr 2026)
+# Apple Stock Analysis (24 Apr 2025 – 24 Apr 2026)
 
 
 ## Objective
@@ -57,4 +83,3 @@ In conclusion, Apple’s stock performed well during the year, with stable growth 
 - GitHub  
 
 
-## Project Structure
