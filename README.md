@@ -22,13 +22,11 @@ Contact:
 - E-Mail: itzisacsy@gmail.com
 - GitHub: https://github.com/isacsy
 
-# About this project
- 
-# stock-market-analysis
+# About this project - stock-market-analysis
 Analyzing stock market data to evaluate performance, risk, and investment insights using Excel and SQL
 
 
-# Apple Stock Analysis (24 Apr 2025 – 24 Apr 2026)
+## Apple Stock Analysis (24 Apr 2025 – 24 Apr 2026)
 
 
 ## Objective
