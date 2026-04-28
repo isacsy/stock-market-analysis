@@ -23,10 +23,11 @@ Contact:
 - GitHub: https://github.com/isacsy
 
 # About this project - stock-market-analysis
-Analyzing stock market data to evaluate performance, risk, and investment insights using Excel and SQL
+This project analyzes the stock performance of Apple Inc. (AAPL) over a one-year period from April 2025 to April 2026. The aim is to evaluate return, risk, and price trends to assess Apple’s attractiveness as an investment.
+The analysis focuses on transforming raw stock price data into meaningful financial insights using data analysis techniques.
 
 
-## Apple Stock Analysis (24 Apr 2025 – 24 Apr 2026)
+## Apple Inc. (AAPL) Stock Performance & Risk Analysis (Apr 2025 – Apr 2026)
 
 
 ## Objective
