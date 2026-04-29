@@ -68,9 +68,8 @@ Several basic yet important financial metrics were calculated:
 - The moving average helps confirm the general trend by reducing short-term distractions.
 
 
-## Visualization
-The chart below shows the closing price and the 10-day moving average.
-
+## Visualization (?? Interactive Dashboard)
+?? View the full interactive dashboard here: https://public.tableau.com/shared/P2NKG5J54?:display_count=n&:origin=viz_share_link
 
 
 ## Conclusion
@@ -78,7 +77,9 @@ In conclusion, Apple’s stock performed well during the year, with stable growth 
 
 
 ## Tools Used
-- Microsoft Excel  
+- Microsoft Excel (Data Cleaning)
+- MySQL (Data Storage & Query-based Analysis)
+- Tableau (Data Visualization & Dashboard)
 - GitHub  
 
 
