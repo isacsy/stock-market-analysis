@@ -1,0 +1,19 @@
+# Copy this file to config.yaml and adjust as needed.
+# config.yaml is gitignored -- it only holds local paths/URLs, never a password.
+
+# Your WBLE entry point. Examples:
+#   https://wble-sl.utar.edu.my/wble-sl
+#   https://wble-kpr.utar.edu.my/wble-kpr
+#   https://ewble-kpr.utar.edu.my
+#   https://ewble-sl.utar.edu.my
+wble_base_url: "https://ewble-kpr.utar.edu.my"
+
+# Where downloaded course files get organized to.
+download_dir: "./notes"
+
+# Where the logged-in browser session (cookies) is cached locally so you
+# don't have to solve the CAPTCHA on every single run.
+session_state_file: "./session_state.json"
+
+# Set to false if you want to watch the browser do its thing after login.
+headless_after_login: true
