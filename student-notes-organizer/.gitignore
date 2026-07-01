@@ -1,7 +1,0 @@
-config.yaml
-session_state.json
-notes/
-manifest.json
-__pycache__/
-*.pyc
-.venv/
