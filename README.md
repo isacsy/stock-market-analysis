@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,12,14,20,24&height=220&section=header&text=Isabel%20Chong%20Sui%20Ying&fontSize=42&fontColor=E9D5FF&animation=fadeIn&fontAlignY=35&desc=Finance%20%7C%20Data%20%26%20Financial%20Analytics%20%7C%20Business%20Intelligence&descAlignY=55&descSize=18" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,12,14,20,24&height=220&section=header&text=Isabel%20Chong%20Sui%20Ying&fontSize=42&fontColor=E9D5FF&animation=fadeIn&fontAlignY=35&desc=Finance%20%7C%20Data%20Analytics%20%7C%20Business%20Intelligence&descAlignY=55&descSize=18" width="100%"/>
 
 <a href="https://git.io/typing-svg">
   <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=500&size=24&duration=3000&pause=800&color=A78BFA&center=true&vCenter=true&width=650&lines=Finance+Undergraduate+%40+UTAR;Data-Driven+Financial+Analysis;Excel+%C2%B7+SQL+%C2%B7+Tableau;Open+to+Internship+Opportunities" alt="Typing SVG" />
