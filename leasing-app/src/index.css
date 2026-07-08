@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    margin: 0;
+    /* Desktop backdrop: soft neutral, app reads like a phone screen centered in it */
+    background: #EDEEF0;
+    color: theme('colors.ink');
+    font-family: theme('fontFamily.sans');
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    min-height: 100dvh;
+  }
+}
+
+@layer components {
+  /* Phone-frame shell: fills the viewport on mobile, becomes a centered
+     max-width column with its own card background on wider screens. */
+  .app-shell {
+    @apply mx-auto min-h-dvh bg-canvas relative;
+    max-width: 430px;
+  }
+
+  @media (min-width: 431px) {
+    .app-shell {
+      @apply shadow-2xl my-6 rounded-[32px] overflow-hidden;
+      min-height: calc(100dvh - 3rem);
+    }
+  }
+
+  /* Duolingo-style chunky button: solid bottom edge via box-shadow,
+     which "presses in" by translating down + shrinking the shadow on tap. */
+  .btn-chunky {
+    @apply select-none transition-transform duration-100 ease-out active:translate-y-1;
+    box-shadow: 0 4px 0 0 var(--press-color, rgba(0, 0, 0, 0.15));
+  }
+  .btn-chunky:active {
+    box-shadow: 0 1px 0 0 var(--press-color, rgba(0, 0, 0, 0.15));
+  }
+  .btn-chunky:disabled {
+    @apply opacity-50 pointer-events-none;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
