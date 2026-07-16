@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f7a45c">
+<title>Colony Flow</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div id="title">🐜 Colony <span>Flow</span></div>
+      <div id="levelBadge">Level <span id="levelNum">1</span></div>
+      <button id="speedBtn" aria-label="toggle speed">▶▶ x1</button>
+    </header>
+
+    <div id="progressWrap">
+      <div id="progressBar"><div id="progressFill"></div></div>
+      <div id="progressPct">0%</div>
+    </div>
+
+    <div id="board">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="stage">
+      <div id="nestHole"></div>
+    </div>
+
+    <div id="activeRow"></div>
+
+    <div id="reserveGrid"></div>
+
+    <div id="bottomBar">
+      <button id="restartBtn">Restart</button>
+    </div>
+  </div>
+
+  <div id="overlay" class="hidden">
+    <div id="overlayCard">
+      <div id="overlayTitle">Level Complete!</div>
+      <div id="overlaySub">The colony finished the picture.</div>
+      <button id="nextBtn">Next Level ▶</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
