@@ -81,7 +81,7 @@ const LEVEL_NAMES = { heart: "Heart", star: "Star", diamond: "Diamond", flower: 
 function levelDef(levelIndex) {
   const shape = LEVEL_SHAPES[levelIndex % LEVEL_SHAPES.length];
   const tier = Math.floor(levelIndex / LEVEL_SHAPES.length);
-  const cols = Math.min(24 + tier * 3, 40);
+  const cols = Math.min(34 + tier * 5, 56);
   const rows = Math.round(cols * 0.78);
   return { shape, cols, rows, name: LEVEL_NAMES[shape] };
 }
@@ -218,6 +218,7 @@ function startLevel(index) {
 
   document.getElementById("levelNum").textContent = String(index + 1);
   setupCanvas();
+  initActiveSlotEls();
   renderTiles();
   updateProgress();
   hideOverlay();
@@ -229,34 +230,73 @@ function startLevel(index) {
 const activeRowEl = document.getElementById("activeRow");
 const reserveGridEl = document.getElementById("reserveGrid");
 
-function renderTiles() {
+// The 5 slot elements are created once and reused for the whole session -
+// only their content/classes change - so renderActiveSlots() never has to
+// tear down and recreate them.
+function initActiveSlotEls() {
+  if (activeRowEl.children.length === SLOT_COUNT) return;
   activeRowEl.innerHTML = "";
   for (let i = 0; i < SLOT_COUNT; i++) {
-    const tile = state.activeSlots[i];
     const div = document.createElement("div");
+    div.className = "tile empty";
+    activeRowEl.appendChild(div);
+  }
+}
+
+// Active slots and the reserve pool are rendered independently. Slots clear
+// constantly on their own (idle ants), and rebuilding the reserve grid's DOM
+// every time that happens - even though the reserve pool itself didn't change -
+// would occasionally rip out the exact tile a player is mid-tap on, on a real
+// phone where a touch gesture takes noticeably longer than a synthetic click.
+// So renderReservePool() only ever runs when the reserve pool itself changes.
+function renderActiveSlots() {
+  for (let i = 0; i < SLOT_COUNT; i++) {
+    const tile = state.activeSlots[i];
+    const div = activeRowEl.children[i];
     if (tile) {
       div.className = "tile slot";
       div.style.background = COLORS[tile.colorIdx].hex;
       div.textContent = tile.value;
       div.dataset.tileId = String(tile.id);
-      if (state.colorCells[tile.colorIdx].length === 0 && tile.value > 0) {
-        div.classList.add("starved");
-      }
+      div.classList.toggle("starved", state.colorCells[tile.colorIdx].length === 0 && tile.value > 0);
     } else {
       div.className = "tile empty";
+      div.textContent = "";
+      delete div.dataset.tileId;
     }
-    activeRowEl.appendChild(div);
   }
+}
 
+// Reserve tiles get individual add/remove calls instead of a full rebuild, so
+// placing or straggler-spawning one tile never disturbs the DOM node of any
+// other tile a player might be mid-tap on at that exact moment.
+const reserveTileEls = new Map();
+
+function initReservePool() {
   reserveGridEl.innerHTML = "";
-  for (const tile of state.reservePool) {
-    const div = document.createElement("div");
-    div.className = "tile reserve";
-    div.style.background = COLORS[tile.colorIdx].hex;
-    div.textContent = tile.value;
-    div.addEventListener("click", () => attemptPlace(tile));
-    reserveGridEl.appendChild(div);
-  }
+  reserveTileEls.clear();
+  for (const tile of state.reservePool) addReserveTileEl(tile);
+}
+
+function addReserveTileEl(tile) {
+  const div = document.createElement("div");
+  div.className = "tile reserve";
+  div.style.background = COLORS[tile.colorIdx].hex;
+  div.textContent = tile.value;
+  div.addEventListener("click", () => attemptPlace(tile));
+  reserveGridEl.appendChild(div);
+  reserveTileEls.set(tile.id, div);
+}
+
+function removeReserveTileEl(tile) {
+  const div = reserveTileEls.get(tile.id);
+  if (div) div.remove();
+  reserveTileEls.delete(tile.id);
+}
+
+function renderTiles() {
+  renderActiveSlots();
+  initReservePool();
 }
 
 function updateProgress() {
@@ -275,17 +315,35 @@ Object.assign(antLayer.style, {
 });
 document.body.appendChild(antLayer);
 
+const ANT_OUTLINE = "#3a2415";
+const ANT_W = 30;
+const ANT_H = 32;
+
 function antSvg(hex) {
-  return `<svg viewBox="0 0 24 24" width="100%" height="100%">
-    <ellipse cx="12" cy="15" rx="5.2" ry="4.2" fill="${hex}"/>
-    <ellipse cx="12" cy="8.5" rx="3" ry="3" fill="${hex}"/>
-    <circle cx="12" cy="4" r="2.1" fill="${hex}"/>
-    <line x1="7" y1="12" x2="3" y2="9" stroke="${hex}" stroke-width="1.4"/>
-    <line x1="7" y1="15" x2="2.5" y2="15" stroke="${hex}" stroke-width="1.4"/>
-    <line x1="7" y1="18" x2="3" y2="21" stroke="${hex}" stroke-width="1.4"/>
-    <line x1="17" y1="12" x2="21" y2="9" stroke="${hex}" stroke-width="1.4"/>
-    <line x1="17" y1="15" x2="21.5" y2="15" stroke="${hex}" stroke-width="1.4"/>
-    <line x1="17" y1="18" x2="21" y2="21" stroke="${hex}" stroke-width="1.4"/>
+  return `<svg viewBox="0 0 32 34" width="100%" height="100%">
+    <g stroke="${ANT_OUTLINE}" stroke-width="1.6" stroke-linecap="round" fill="none">
+      <path d="M11 19 Q5 18 3 15"/>
+      <path d="M11 22 Q4 22 2 23"/>
+      <path d="M11 25 Q5 27 3 30"/>
+      <path d="M21 19 Q27 18 29 15"/>
+      <path d="M21 22 Q28 22 30 23"/>
+      <path d="M21 25 Q27 27 29 30"/>
+    </g>
+    <ellipse cx="16" cy="25.5" rx="8" ry="7" fill="${hex}" stroke="rgba(0,0,0,.18)" stroke-width="0.6"/>
+    <ellipse cx="16" cy="17" rx="5.3" ry="4.8" fill="${hex}" stroke="rgba(0,0,0,.18)" stroke-width="0.6"/>
+    <circle cx="16" cy="8.5" r="6.2" fill="${hex}" stroke="rgba(0,0,0,.18)" stroke-width="0.6"/>
+    <path d="M13 4 Q10.5 0.5 8 0" stroke="${ANT_OUTLINE}" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    <path d="M19 4 Q21.5 0.5 24 0" stroke="${ANT_OUTLINE}" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    <circle cx="8" cy="0.3" r="1.3" fill="${ANT_OUTLINE}"/>
+    <circle cx="24" cy="0.3" r="1.3" fill="${ANT_OUTLINE}"/>
+    <circle cx="12.8" cy="8.2" r="2.3" fill="#fff"/>
+    <circle cx="19.2" cy="8.2" r="2.3" fill="#fff"/>
+    <circle cx="13.2" cy="8.7" r="1.15" fill="#26150a"/>
+    <circle cx="19.6" cy="8.7" r="1.15" fill="#26150a"/>
+    <circle cx="13.6" cy="8.1" r="0.45" fill="#fff"/>
+    <circle cx="20" cy="8.1" r="0.45" fill="#fff"/>
+    <ellipse cx="10.6" cy="10.8" rx="1.3" ry="0.9" fill="#ff9d9d" opacity="0.55"/>
+    <ellipse cx="21.4" cy="10.8" rx="1.3" ry="0.9" fill="#ff9d9d" opacity="0.55"/>
   </svg>`;
 }
 
@@ -321,18 +379,18 @@ function animateAntTrip(cell, colorIdx) {
   const hex = COLORS[colorIdx].hex;
   const nest = nestPagePos();
   const dest = cellPagePos(cell);
-  const travel = 420 / state.speed;
+  const travel = 900 / state.speed;
 
   const ant = document.createElement("div");
   ant.className = "ant";
   ant.innerHTML = antSvg(hex);
-  ant.style.transform = `translate(${nest.x - 11}px, ${nest.y - 11}px)`;
+  ant.style.transform = `translate(${nest.x - ANT_W / 2}px, ${nest.y - ANT_H / 2}px)`;
   ant.style.transitionDuration = travel + "ms";
   antLayer.appendChild(ant);
   activeAnts.add(ant);
 
   requestAnimationFrame(() => {
-    ant.style.transform = `translate(${dest.x - 11}px, ${dest.y - 11}px)`;
+    ant.style.transform = `translate(${dest.x - ANT_W / 2}px, ${dest.y - ANT_H / 2}px)`;
   });
 
   setTimeout(() => {
@@ -343,7 +401,7 @@ function animateAntTrip(cell, colorIdx) {
     checkWin();
     // carry it back to the hole
     ant.style.transitionDuration = travel + "ms";
-    ant.style.transform = `translate(${nest.x - 11}px, ${nest.y - 11}px)`;
+    ant.style.transform = `translate(${nest.x - ANT_W / 2}px, ${nest.y - ANT_H / 2}px)`;
     setTimeout(() => {
       ant.remove();
       activeAnts.delete(ant);
@@ -364,8 +422,9 @@ function maybeSpawnStraggler(colorIdx) {
   state.stragglerSpawned[colorIdx] = true;
   if (Math.random() < 0.45) {
     const value = 3 + Math.floor(Math.random() * 5);
-    state.reservePool.push({ id: state.nextTileId++, colorIdx, value, maxValue: value });
-    renderTiles();
+    const straggler = { id: state.nextTileId++, colorIdx, value, maxValue: value };
+    state.reservePool.push(straggler);
+    addReserveTileEl(straggler);
   }
 }
 
@@ -398,7 +457,7 @@ function trySpawnAntForSlot(slotIndex) {
       const idx = state.activeSlots.indexOf(tile);
       if (idx === -1) return; // already cleared out
       state.activeSlots[idx] = null;
-      renderTiles();
+      renderActiveSlots();
     }, 220);
   }
 }
@@ -415,8 +474,9 @@ function attemptPlace(tile) {
   const poolIdx = state.reservePool.indexOf(tile);
   if (poolIdx === -1) return;
   state.reservePool.splice(poolIdx, 1);
+  removeReserveTileEl(tile);
   state.activeSlots[idx] = tile;
-  renderTiles();
+  renderActiveSlots();
   checkDeadlock();
 }
 
@@ -436,7 +496,7 @@ function startSpawnLoop() {
       const key = "s" + i;
       if (nextSpawnAt[key] === undefined) nextSpawnAt[key] = now + 200 + Math.random() * 300;
       if (now >= nextSpawnAt[key]) {
-        const baseInterval = 700 / state.speed;
+        const baseInterval = 1050 / state.speed;
         nextSpawnAt[key] = now + baseInterval * (0.7 + Math.random() * 0.6);
         const before = tile.value;
         trySpawnAntForSlot(i);
