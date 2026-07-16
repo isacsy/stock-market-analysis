@@ -121,11 +121,8 @@ const state = {
   totalCells: 0,
   clearedCells: 0,
   activeSlots: [],      // fixed-length array of SLOT_COUNT; each entry is a tile object or null
-  reservePool: [],      // tiles CURRENTLY placeable - only the unlocked layer (+ its straggler, if any)
-  perLayerTiles: [],    // perLayerTiles[colorIdx] = that layer's full tile set, revealed once unlocked
-  currentLayer: 0,      // outermost color layer not yet fully cleared - the only one placeable right now
-  layerAdvanced: [],    // per color, whether we've already advanced past this layer
-  stragglerSpawned: [], // per color, whether its post-exhaustion straggler tile already appeared
+  reservePool: [],      // every color's blocks, shuffled together from the start
+  currentLayer: 0,      // the one color layer ants can currently reach - everything else just sits idle
   speed: 1,
   nextTileId: 1,
   gameEnded: false
@@ -212,62 +209,61 @@ function startLevel(index) {
 
   // The picture is painted in concentric layers (outermost color first, like
   // an onion), and ants can only reach a layer once every layer covering it
-  // from outside has been fully carried away. So only ONE layer's blocks are
-  // ever placeable at a time - deeper colors simply aren't in the reserve pool
-  // yet. Each layer's tiles exactly partition its own pixel count, so placing
-  // any combination of that layer's tiles (even all at once, across several
-  // slots) always fully resolves it. (An occasional post-exhaustion
-  // "straggler" tile is the only real risk - see maybeSpawnStraggler below.)
-  state.perLayerTiles = COLORS.map(() => []);
+  // from outside has been fully carried away. This is the puzzle: every
+  // color's blocks are shuffled together in the reserve pool from the start -
+  // the game does NOT filter them for you. You have to read the picture to
+  // work out which color is currently the exposed outer ring and place only
+  // that one. A block of a color that isn't exposed yet just sits in its slot
+  // doing nothing (its ants have nowhere to go) until that layer's turn comes
+  // around - and if you fill all 5 slots with blocks that aren't reachable
+  // yet, the current layer can never finish and the game is over. Each
+  // layer's tiles exactly partition its own pixel count, so once a color IS
+  // the exposed layer, placing any combination of its blocks always fully
+  // resolves it - the puzzle is entirely about reading the board correctly,
+  // not about luck.
+  const perLayerTiles = COLORS.map(() => []);
   COLORS.forEach((_, i) => {
     const count = state.colorCells[i].length;
     if (count === 0) return;
     for (const value of splitIntoChunks(count, 6, 20)) {
-      state.perLayerTiles[i].push({ id: state.nextTileId++, colorIdx: i, value, maxValue: value });
+      perLayerTiles[i].push({ id: state.nextTileId++, colorIdx: i, value, maxValue: value });
     }
   });
 
-  state.reservePool = [];
+  const pool = [];
+  perLayerTiles.forEach((tiles) => pool.push(...tiles));
+  shuffle(pool);
+
+  state.reservePool = pool;
   state.activeSlots = new Array(SLOT_COUNT).fill(null);
-  state.stragglerSpawned = COLORS.map(() => false);
-  state.layerAdvanced = COLORS.map(() => false);
 
   state.currentLayer = 0;
-  while (state.currentLayer < COLORS.length && state.perLayerTiles[state.currentLayer].length === 0) {
+  while (state.currentLayer < COLORS.length && perLayerTiles[state.currentLayer].length === 0) {
     state.currentLayer++;
   }
 
   document.getElementById("levelNum").textContent = String(index + 1);
   setupCanvas();
   initActiveSlotEls();
-  if (state.currentLayer < COLORS.length) revealLayer(state.currentLayer);
   renderTiles();
   updateProgress();
   hideOverlay();
   startSpawnLoop();
 }
 
-// Adds a newly-unlocked layer's tiles into the reserve pool.
-function revealLayer(colorIdx) {
-  for (const tile of state.perLayerTiles[colorIdx]) {
-    state.reservePool.push(tile);
-    addReserveTileEl(tile);
-  }
-}
-
 // Once the current layer's pixels are all claimed, unlock the next layer that
-// actually has pixels (skipping any color a shape happens not to use).
+// actually has pixels (skipping any color a shape happens not to use). Any
+// tile of that color already sitting in a slot (placed early, in advance)
+// starts getting ants immediately.
 function checkLayerAdvance(colorIdx) {
   if (colorIdx !== state.currentLayer) return;
   if (state.colorCells[colorIdx].length > 0) return;
-  if (state.layerAdvanced[colorIdx]) return;
-  state.layerAdvanced[colorIdx] = true;
 
   let next = state.currentLayer + 1;
-  while (next < COLORS.length && state.perLayerTiles[next].length === 0) next++;
+  while (next < COLORS.length && state.colorCells[next].length === 0) next++;
   if (next < COLORS.length) {
     state.currentLayer = next;
-    revealLayer(next);
+    renderActiveSlots();
   }
 }
 
@@ -304,7 +300,7 @@ function renderActiveSlots() {
       div.style.background = COLORS[tile.colorIdx].hex;
       div.textContent = tile.value;
       div.dataset.tileId = String(tile.id);
-      div.classList.toggle("starved", state.colorCells[tile.colorIdx].length === 0 && tile.value > 0);
+      div.classList.toggle("starved", tile.colorIdx !== state.currentLayer && tile.value > 0);
     } else {
       div.className = "tile empty";
       div.textContent = "";
@@ -428,6 +424,10 @@ function clearAnts() {
 }
 
 function pickCellToClear(colorIdx) {
+  // Ants can only reach the one color that's currently the exposed outer
+  // layer - a block of any other color has nothing to claim yet, no matter
+  // how many pixels of that color are still sitting on the board underneath.
+  if (colorIdx !== state.currentLayer) return null;
   // pop (claim) immediately so two concurrent ants never target the same pixel
   const arr = state.colorCells[colorIdx];
   return arr.length ? arr.pop() : null;
@@ -467,35 +467,15 @@ function animateAntTrip(cell, colorIdx) {
   }, travel);
 }
 
-// Occasionally, right as a color's very last pixel gets claimed, one more
-// "straggler" tile for that color shows up in reserve - a colony member
-// arriving after the job is already done. The board has already visibly
-// lost that color by the time it appears, so the safe, always-sufficient
-// rule for a player is simply: only place a block if its color is still
-// visible in the picture. Placing a straggler anyway is a real, avoidable
-// mistake - its slot can never clear, and enough of those ends the game.
-function maybeSpawnStraggler(colorIdx) {
-  if (state.colorCells[colorIdx].length > 0) return;
-  if (state.stragglerSpawned[colorIdx]) return;
-  state.stragglerSpawned[colorIdx] = true;
-  if (Math.random() < 0.45) {
-    const value = 3 + Math.floor(Math.random() * 5);
-    const straggler = { id: state.nextTileId++, colorIdx, value, maxValue: value };
-    state.reservePool.push(straggler);
-    addReserveTileEl(straggler);
-  }
-}
-
 // Attempts one ant trip for the tile in this slot. Only decrements the tile's
 // counter if a matching pixel was actually available to claim - a tile whose
-// color has already run dry (only possible via a straggler tile placed after
-// the board already shows that color as gone) simply stalls at its current
-// value instead of ticking down for free.
+// color isn't the currently-reachable layer simply sits at its current value,
+// doing nothing, until that layer's turn comes around.
 function trySpawnAntForSlot(slotIndex) {
   const tile = state.activeSlots[slotIndex];
   if (!tile || tile.value <= 0) return;
   const cell = pickCellToClear(tile.colorIdx);
-  if (!cell) return; // no supply left for this color right now
+  if (!cell) return; // not the exposed layer yet (or no supply left right now)
 
   tile.value -= 1;
   const el = activeRowEl.querySelector('[data-tile-id="' + tile.id + '"]');
@@ -507,7 +487,6 @@ function trySpawnAntForSlot(slotIndex) {
   }
 
   animateAntTrip(cell, tile.colorIdx);
-  maybeSpawnStraggler(tile.colorIdx);
   checkLayerAdvance(tile.colorIdx);
 
   if (tile.value <= 0) {
@@ -559,7 +538,7 @@ function startSpawnLoop() {
         nextSpawnAt[key] = now + baseInterval * (0.7 + Math.random() * 0.6);
         const before = tile.value;
         trySpawnAntForSlot(i);
-        if (tile.value === before && state.colorCells[tile.colorIdx].length === 0) anyStalled = true;
+        if (tile.value === before && tile.colorIdx !== state.currentLayer) anyStalled = true;
       }
     });
     if (anyStalled) { updateStarvedClasses(); checkDeadlock(); }
@@ -571,7 +550,7 @@ function updateStarvedClasses() {
     const tile = state.activeSlots[i];
     const el = activeRowEl.children[i];
     if (!el) continue;
-    const starved = !!tile && tile.value > 0 && state.colorCells[tile.colorIdx].length === 0;
+    const starved = !!tile && tile.value > 0 && tile.colorIdx !== state.currentLayer;
     el.classList.toggle("starved", starved);
   }
 }
@@ -592,17 +571,17 @@ function checkWin() {
   }
 }
 
-// A slot is permanently stuck once its color has zero pixels left to claim.
-// If every slot is full and every one of them is stuck, no move can ever
-// progress the game again - that's the loss condition.
+// A slot is dead weight while its color isn't the one ants can currently
+// reach. If every slot is full of colors that aren't the exposed layer, the
+// exposed layer can never finish (no slot is free to place its blocks) and
+// nothing can ever unlock the colors waiting behind it either - that's a
+// permanent deadlock, not just a delay.
 function checkDeadlock() {
   if (state.gameEnded) return;
   const allFull = state.activeSlots.every(s => s !== null);
   if (!allFull) return;
-  const allStuck = state.activeSlots.every(
-    s => s.value > 0 && state.colorCells[s.colorIdx].length === 0
-  );
-  if (allStuck) {
+  const allWrongLayer = state.activeSlots.every(s => s.colorIdx !== state.currentLayer);
+  if (allWrongLayer) {
     state.gameEnded = true;
     stopSpawnLoop();
     showResult(false);
@@ -624,7 +603,7 @@ function showResult(won) {
     nextBtn.onclick = () => startLevel(state.levelIndex + 1);
   } else {
     overlayTitleEl.textContent = "Colony Stuck!";
-    overlaySubEl.textContent = "All 5 slots are jammed with stragglers from colors that are already gone. Watch the picture - once a layer disappears, stop placing that color.";
+    overlaySubEl.textContent = "All 5 slots are filled with colors that aren't the exposed layer, so nothing can progress. Check the board before placing - only the outermost visible color is reachable.";
     nextBtn.textContent = "Retry Level ↻";
     nextBtn.onclick = () => startLevel(state.levelIndex);
   }
