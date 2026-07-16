@@ -88,18 +88,21 @@ function levelDef(levelIndex) {
 
 /* ---------- Game state ---------- */
 
+const SLOT_COUNT = 5;
+
 const state = {
   levelIndex: 0,
   cols: 0, rows: 0,
   cells: [],
-  colorCells: [],       // colorCells[i] = array of not-yet-cleared cell refs for color i
-  colorTilesLeft: [],   // how many tiles of color i still exist (active + reserve)
+  colorCells: [],       // colorCells[i] = array of not-yet-claimed cell refs for color i
   totalCells: 0,
   clearedCells: 0,
-  activeSlots: [],      // array of tile objects (max 5)
-  reserveQueue: [],      // array of tile objects waiting
+  activeSlots: [],      // fixed-length array of SLOT_COUNT; each entry is a tile object or null
+  reservePool: [],      // tiles waiting to be manually placed, tappable in any order
+  stragglerSpawned: [], // per color, whether its post-exhaustion straggler tile already appeared
   speed: 1,
-  nextTileId: 1
+  nextTileId: 1,
+  gameEnded: false
 };
 
 let redrawQueued = false;
@@ -158,6 +161,14 @@ function splitIntoChunks(total, min, max) {
   return chunks;
 }
 
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function startLevel(index) {
   stopSpawnLoop();
   clearAnts();
@@ -168,43 +179,42 @@ function startLevel(index) {
   state.cells = buildGrid(def.cols, def.rows, def.shape);
   state.totalCells = state.cells.length;
   state.clearedCells = 0;
+  state.gameEnded = false;
 
   state.colorCells = COLORS.map(() => []);
   for (const cell of state.cells) state.colorCells[cell.colorIdx].push(cell);
 
+  // Tiles exactly partition each color's pixel count, so no single tile is ever
+  // individually oversized and no combination of tiles for one color can ever
+  // exceed its supply - placed in any order or combination, they always fully
+  // resolve. (Occasional post-exhaustion "straggler" tiles add the only real
+  // risk in the game - see trySpawnAntForSlot / maybeSpawnStraggler below.)
   const perColorTiles = COLORS.map(() => []);
-  state.colorTilesLeft = COLORS.map(() => 0);
   COLORS.forEach((_, i) => {
     const count = state.colorCells[i].length;
     if (count === 0) return;
-    // one hit == one pixel carried away, so tile values must sum to the pixel count exactly
-    const chunks = splitIntoChunks(count, 6, 20);
-    for (const value of chunks) {
+    for (const value of splitIntoChunks(count, 6, 20)) {
       perColorTiles[i].push({ id: state.nextTileId++, colorIdx: i, value, maxValue: value });
     }
-    state.colorTilesLeft[i] = perColorTiles[i].length;
   });
 
-  // interleave colors round-robin so the front of the queue has variety
-  const queue = [];
+  // interleave colors round-robin so the reserve pool has variety, not long same-color runs
+  const pool = [];
   let remaining = perColorTiles.reduce((a, arr) => a + arr.length, 0);
   const cursors = perColorTiles.map(() => 0);
   while (remaining > 0) {
     for (let i = 0; i < COLORS.length; i++) {
       if (cursors[i] < perColorTiles[i].length) {
-        queue.push(perColorTiles[i][cursors[i]]);
+        pool.push(perColorTiles[i][cursors[i]]);
         cursors[i]++;
         remaining--;
       }
     }
   }
 
-  state.reserveQueue = queue;
-  state.activeSlots = [];
-  for (let i = 0; i < 5; i++) {
-    const t = state.reserveQueue.shift();
-    if (t) state.activeSlots.push(t);
-  }
+  state.reservePool = pool;
+  state.activeSlots = new Array(SLOT_COUNT).fill(null);
+  state.stragglerSpawned = COLORS.map(() => false);
 
   document.getElementById("levelNum").textContent = String(index + 1);
   setupCanvas();
@@ -221,15 +231,17 @@ const reserveGridEl = document.getElementById("reserveGrid");
 
 function renderTiles() {
   activeRowEl.innerHTML = "";
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < SLOT_COUNT; i++) {
     const tile = state.activeSlots[i];
     const div = document.createElement("div");
     if (tile) {
-      div.className = "tile active";
+      div.className = "tile slot";
       div.style.background = COLORS[tile.colorIdx].hex;
       div.textContent = tile.value;
       div.dataset.tileId = String(tile.id);
-      div.addEventListener("click", () => placeBlock(tile));
+      if (state.colorCells[tile.colorIdx].length === 0 && tile.value > 0) {
+        div.classList.add("starved");
+      }
     } else {
       div.className = "tile empty";
     }
@@ -237,12 +249,12 @@ function renderTiles() {
   }
 
   reserveGridEl.innerHTML = "";
-  for (const tile of state.reserveQueue) {
+  for (const tile of state.reservePool) {
     const div = document.createElement("div");
-    div.className = "tile";
+    div.className = "tile reserve";
     div.style.background = COLORS[tile.colorIdx].hex;
-    div.style.opacity = "0.75";
     div.textContent = tile.value;
+    div.addEventListener("click", () => attemptPlace(tile));
     reserveGridEl.appendChild(div);
   }
 }
@@ -305,10 +317,7 @@ function pickCellToClear(colorIdx) {
   return arr.length ? arr.pop() : null;
 }
 
-function sendAnt(colorIdx, onArrive) {
-  const cell = pickCellToClear(colorIdx);
-  if (!cell) { if (onArrive) onArrive(false); return; }
-
+function animateAntTrip(cell, colorIdx) {
   const hex = COLORS[colorIdx].hex;
   const nest = nestPagePos();
   const dest = cellPagePos(cell);
@@ -327,30 +336,49 @@ function sendAnt(colorIdx, onArrive) {
   });
 
   setTimeout(() => {
-    if (!cell.cleared) {
-      cell.cleared = true;
-      state.clearedCells++;
-      queueRedraw();
-      updateProgress();
-      checkWin();
-    }
+    cell.cleared = true;
+    state.clearedCells++;
+    queueRedraw();
+    updateProgress();
+    checkWin();
     // carry it back to the hole
     ant.style.transitionDuration = travel + "ms";
     ant.style.transform = `translate(${nest.x - 11}px, ${nest.y - 11}px)`;
     setTimeout(() => {
       ant.remove();
       activeAnts.delete(ant);
-      if (onArrive) onArrive(true);
     }, travel);
   }, travel);
 }
 
-function tileHit(tile) {
-  if (!tile || tile.value <= 0) return;
-  // tile may already be gone from activeSlots if this fires after it cleared
-  if (state.activeSlots.indexOf(tile) === -1) return;
+// Occasionally, right as a color's very last pixel gets claimed, one more
+// "straggler" tile for that color shows up in reserve - a colony member
+// arriving after the job is already done. The board has already visibly
+// lost that color by the time it appears, so the safe, always-sufficient
+// rule for a player is simply: only place a block if its color is still
+// visible in the picture. Placing a straggler anyway is a real, avoidable
+// mistake - its slot can never clear, and enough of those ends the game.
+function maybeSpawnStraggler(colorIdx) {
+  if (state.colorCells[colorIdx].length > 0) return;
+  if (state.stragglerSpawned[colorIdx]) return;
+  state.stragglerSpawned[colorIdx] = true;
+  if (Math.random() < 0.45) {
+    const value = 3 + Math.floor(Math.random() * 5);
+    state.reservePool.push({ id: state.nextTileId++, colorIdx, value, maxValue: value });
+    renderTiles();
+  }
+}
 
-  sendAnt(tile.colorIdx);
+// Attempts one ant trip for the tile in this slot. Only decrements the tile's
+// counter if a matching pixel was actually available to claim - a tile whose
+// color has already run dry (only possible via a straggler tile placed after
+// the board already shows that color as gone) simply stalls at its current
+// value instead of ticking down for free.
+function trySpawnAntForSlot(slotIndex) {
+  const tile = state.activeSlots[slotIndex];
+  if (!tile || tile.value <= 0) return;
+  const cell = pickCellToClear(tile.colorIdx);
+  if (!cell) return; // no supply left for this color right now
 
   tile.value -= 1;
   const el = activeRowEl.querySelector('[data-tile-id="' + tile.id + '"]');
@@ -361,32 +389,35 @@ function tileHit(tile) {
     el.classList.add("hit");
   }
 
+  animateAntTrip(cell, tile.colorIdx);
+  maybeSpawnStraggler(tile.colorIdx);
+
   if (tile.value <= 0) {
-    state.colorTilesLeft[tile.colorIdx]--;
-    if (state.colorTilesLeft[tile.colorIdx] <= 0) {
-      // no tiles of this color left anywhere: sweep any leftover cells
-      const arr = state.colorCells[tile.colorIdx];
-      let changed = false;
-      for (const cell of arr) {
-        if (!cell.cleared) { cell.cleared = true; state.clearedCells++; changed = true; }
-      }
-      arr.length = 0;
-      if (changed) { queueRedraw(); updateProgress(); checkWin(); }
-    }
-    if (el) { el.classList.add("clearing"); }
+    if (el) el.classList.add("clearing");
     setTimeout(() => {
       const idx = state.activeSlots.indexOf(tile);
-      if (idx === -1) return; // already removed
-      state.activeSlots.splice(idx, 1);
-      const next = state.reserveQueue.shift();
-      if (next) state.activeSlots.push(next);
+      if (idx === -1) return; // already cleared out
+      state.activeSlots[idx] = null;
       renderTiles();
     }, 220);
   }
 }
 
-function placeBlock(tile) {
-  tileHit(tile);
+function attemptPlace(tile) {
+  if (state.gameEnded) return;
+  const idx = state.activeSlots.indexOf(null);
+  if (idx === -1) {
+    activeRowEl.classList.remove("shake");
+    void activeRowEl.offsetWidth;
+    activeRowEl.classList.add("shake");
+    return;
+  }
+  const poolIdx = state.reservePool.indexOf(tile);
+  if (poolIdx === -1) return;
+  state.reservePool.splice(poolIdx, 1);
+  state.activeSlots[idx] = tile;
+  renderTiles();
+  checkDeadlock();
 }
 
 /* ---------- Auto spawn loop (idle ants) ---------- */
@@ -397,7 +428,9 @@ const nextSpawnAt = {};
 function startSpawnLoop() {
   Object.keys(nextSpawnAt).forEach(k => delete nextSpawnAt[k]);
   spawnTimer = setInterval(() => {
+    if (state.gameEnded) return;
     const now = performance.now();
+    let anyStalled = false;
     state.activeSlots.forEach((tile, i) => {
       if (!tile || tile.value <= 0) return;
       const key = "s" + i;
@@ -405,10 +438,23 @@ function startSpawnLoop() {
       if (now >= nextSpawnAt[key]) {
         const baseInterval = 700 / state.speed;
         nextSpawnAt[key] = now + baseInterval * (0.7 + Math.random() * 0.6);
-        autoAntHit(i);
+        const before = tile.value;
+        trySpawnAntForSlot(i);
+        if (tile.value === before && state.colorCells[tile.colorIdx].length === 0) anyStalled = true;
       }
     });
+    if (anyStalled) { updateStarvedClasses(); checkDeadlock(); }
   }, 120);
+}
+
+function updateStarvedClasses() {
+  for (let i = 0; i < SLOT_COUNT; i++) {
+    const tile = state.activeSlots[i];
+    const el = activeRowEl.children[i];
+    if (!el) continue;
+    const starved = !!tile && tile.value > 0 && state.colorCells[tile.colorIdx].length === 0;
+    el.classList.toggle("starved", starved);
+  }
 }
 
 function stopSpawnLoop() {
@@ -416,34 +462,59 @@ function stopSpawnLoop() {
   spawnTimer = null;
 }
 
-function autoAntHit(slotIndex) {
-  const tile = state.activeSlots[slotIndex];
-  if (!tile || tile.value <= 0) return;
-  tileHit(tile);
-}
-
-/* ---------- Win / overlay ---------- */
+/* ---------- Win / lose / overlay ---------- */
 
 function checkWin() {
+  if (state.gameEnded) return;
   if (state.clearedCells >= state.totalCells) {
+    state.gameEnded = true;
     stopSpawnLoop();
-    showOverlay();
+    showResult(true);
+  }
+}
+
+// A slot is permanently stuck once its color has zero pixels left to claim.
+// If every slot is full and every one of them is stuck, no move can ever
+// progress the game again - that's the loss condition.
+function checkDeadlock() {
+  if (state.gameEnded) return;
+  const allFull = state.activeSlots.every(s => s !== null);
+  if (!allFull) return;
+  const allStuck = state.activeSlots.every(
+    s => s.value > 0 && state.colorCells[s.colorIdx].length === 0
+  );
+  if (allStuck) {
+    state.gameEnded = true;
+    stopSpawnLoop();
+    showResult(false);
   }
 }
 
 const overlay = document.getElementById("overlay");
-function showOverlay() {
-  document.getElementById("overlayTitle").textContent = "Level Complete!";
-  document.getElementById("overlaySub").textContent = "The colony carried every pixel home.";
+const overlayCardEl = document.getElementById("overlayCard");
+const overlayTitleEl = document.getElementById("overlayTitle");
+const overlaySubEl = document.getElementById("overlaySub");
+const nextBtn = document.getElementById("nextBtn");
+
+function showResult(won) {
+  overlayCardEl.classList.toggle("lose", !won);
+  if (won) {
+    overlayTitleEl.textContent = "Level Complete!";
+    overlaySubEl.textContent = "The colony carried every pixel home.";
+    nextBtn.textContent = "Next Level ▶";
+    nextBtn.onclick = () => startLevel(state.levelIndex + 1);
+  } else {
+    overlayTitleEl.textContent = "Colony Stuck!";
+    overlaySubEl.textContent = "All 5 slots are full of blocks whose colors are already gone from the board. Watch the picture next time - stop placing a color once it disappears.";
+    nextBtn.textContent = "Retry Level ↻";
+    nextBtn.onclick = () => startLevel(state.levelIndex);
+  }
   overlay.classList.remove("hidden");
 }
 function hideOverlay() {
   overlay.classList.add("hidden");
 }
 
-document.getElementById("nextBtn").addEventListener("click", () => {
-  startLevel(state.levelIndex + 1);
-});
 document.getElementById("restartBtn").addEventListener("click", () => {
   startLevel(state.levelIndex);
 });
