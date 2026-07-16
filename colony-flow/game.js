@@ -33,19 +33,42 @@ const SHAPES = {
       const wave = 0.72 + 0.28 * Math.cos(6 * theta);
       return r <= wave;
     }
+  },
+  clover: {
+    xRange: [-1.05, 1.05], yTop: 1.05, yBottom: -1.05,
+    test(nx, ny) {
+      const r = Math.sqrt(nx * nx + ny * ny);
+      const theta = Math.atan2(ny, nx);
+      const wave = 0.62 + 0.38 * Math.cos(4 * theta);
+      return r <= wave;
+    }
+  },
+  sun: {
+    xRange: [-1.05, 1.05], yTop: 1.05, yBottom: -1.05,
+    test(nx, ny) {
+      const r = Math.sqrt(nx * nx + ny * ny);
+      const theta = Math.atan2(ny, nx) + Math.PI / 2;
+      const wave = 0.55 + 0.45 * Math.cos(8 * theta);
+      return r <= wave;
+    }
   }
 };
 
-const RING_SCALES = [1.0, 0.85, 0.7, 0.55, 0.4, 0.25, 0.12];
+// Equal-area concentric rings (r_k = sqrt(k/N)) so each color band gets a
+// comparable pixel count instead of the outer rings dwarfing the inner ones.
+const RING_SCALES = [1.0, 0.949, 0.894, 0.837, 0.775, 0.707, 0.632, 0.548, 0.447, 0.316];
 
 const COLORS = [
   { name: "red", hex: "#ef4444" },
-  { name: "orange", hex: "#fb923c" },
-  { name: "yellow", hex: "#fbbf24" },
-  { name: "green", hex: "#5fd15f" },
-  { name: "cyan", hex: "#38c6e0" },
-  { name: "blue", hex: "#7c6bf0" },
-  { name: "pink", hex: "#ee6fd0" }
+  { name: "orange", hex: "#f97316" },
+  { name: "amber", hex: "#f59e0b" },
+  { name: "yellow", hex: "#eab308" },
+  { name: "lime", hex: "#84cc16" },
+  { name: "green", hex: "#22c55e" },
+  { name: "teal", hex: "#14b8a6" },
+  { name: "blue", hex: "#3b82f6" },
+  { name: "purple", hex: "#a855f7" },
+  { name: "pink", hex: "#ec4899" }
 ];
 
 function cellLayer(shapeFn, nx, ny) {
@@ -75,8 +98,8 @@ function buildGrid(cols, rows, shapeName) {
 
 /* ---------- Level list ---------- */
 
-const LEVEL_SHAPES = ["heart", "star", "diamond", "flower"];
-const LEVEL_NAMES = { heart: "Heart", star: "Star", diamond: "Diamond", flower: "Flower" };
+const LEVEL_SHAPES = ["heart", "star", "diamond", "flower", "clover", "sun"];
+const LEVEL_NAMES = { heart: "Heart", star: "Star", diamond: "Diamond", flower: "Flower", clover: "Clover", sun: "Sun" };
 
 function levelDef(levelIndex) {
   const shape = LEVEL_SHAPES[levelIndex % LEVEL_SHAPES.length];
