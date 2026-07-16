@@ -121,7 +121,10 @@ const state = {
   totalCells: 0,
   clearedCells: 0,
   activeSlots: [],      // fixed-length array of SLOT_COUNT; each entry is a tile object or null
-  reservePool: [],      // tiles waiting to be manually placed, tappable in any order
+  reservePool: [],      // tiles CURRENTLY placeable - only the unlocked layer (+ its straggler, if any)
+  perLayerTiles: [],    // perLayerTiles[colorIdx] = that layer's full tile set, revealed once unlocked
+  currentLayer: 0,      // outermost color layer not yet fully cleared - the only one placeable right now
+  layerAdvanced: [],    // per color, whether we've already advanced past this layer
   stragglerSpawned: [], // per color, whether its post-exhaustion straggler tile already appeared
   speed: 1,
   nextTileId: 1,
@@ -207,45 +210,65 @@ function startLevel(index) {
   state.colorCells = COLORS.map(() => []);
   for (const cell of state.cells) state.colorCells[cell.colorIdx].push(cell);
 
-  // Tiles exactly partition each color's pixel count, so no single tile is ever
-  // individually oversized and no combination of tiles for one color can ever
-  // exceed its supply - placed in any order or combination, they always fully
-  // resolve. (Occasional post-exhaustion "straggler" tiles add the only real
-  // risk in the game - see trySpawnAntForSlot / maybeSpawnStraggler below.)
-  const perColorTiles = COLORS.map(() => []);
+  // The picture is painted in concentric layers (outermost color first, like
+  // an onion), and ants can only reach a layer once every layer covering it
+  // from outside has been fully carried away. So only ONE layer's blocks are
+  // ever placeable at a time - deeper colors simply aren't in the reserve pool
+  // yet. Each layer's tiles exactly partition its own pixel count, so placing
+  // any combination of that layer's tiles (even all at once, across several
+  // slots) always fully resolves it. (An occasional post-exhaustion
+  // "straggler" tile is the only real risk - see maybeSpawnStraggler below.)
+  state.perLayerTiles = COLORS.map(() => []);
   COLORS.forEach((_, i) => {
     const count = state.colorCells[i].length;
     if (count === 0) return;
     for (const value of splitIntoChunks(count, 6, 20)) {
-      perColorTiles[i].push({ id: state.nextTileId++, colorIdx: i, value, maxValue: value });
+      state.perLayerTiles[i].push({ id: state.nextTileId++, colorIdx: i, value, maxValue: value });
     }
   });
 
-  // interleave colors round-robin so the reserve pool has variety, not long same-color runs
-  const pool = [];
-  let remaining = perColorTiles.reduce((a, arr) => a + arr.length, 0);
-  const cursors = perColorTiles.map(() => 0);
-  while (remaining > 0) {
-    for (let i = 0; i < COLORS.length; i++) {
-      if (cursors[i] < perColorTiles[i].length) {
-        pool.push(perColorTiles[i][cursors[i]]);
-        cursors[i]++;
-        remaining--;
-      }
-    }
-  }
-
-  state.reservePool = pool;
+  state.reservePool = [];
   state.activeSlots = new Array(SLOT_COUNT).fill(null);
   state.stragglerSpawned = COLORS.map(() => false);
+  state.layerAdvanced = COLORS.map(() => false);
+
+  state.currentLayer = 0;
+  while (state.currentLayer < COLORS.length && state.perLayerTiles[state.currentLayer].length === 0) {
+    state.currentLayer++;
+  }
 
   document.getElementById("levelNum").textContent = String(index + 1);
   setupCanvas();
   initActiveSlotEls();
+  if (state.currentLayer < COLORS.length) revealLayer(state.currentLayer);
   renderTiles();
   updateProgress();
   hideOverlay();
   startSpawnLoop();
+}
+
+// Adds a newly-unlocked layer's tiles into the reserve pool.
+function revealLayer(colorIdx) {
+  for (const tile of state.perLayerTiles[colorIdx]) {
+    state.reservePool.push(tile);
+    addReserveTileEl(tile);
+  }
+}
+
+// Once the current layer's pixels are all claimed, unlock the next layer that
+// actually has pixels (skipping any color a shape happens not to use).
+function checkLayerAdvance(colorIdx) {
+  if (colorIdx !== state.currentLayer) return;
+  if (state.colorCells[colorIdx].length > 0) return;
+  if (state.layerAdvanced[colorIdx]) return;
+  state.layerAdvanced[colorIdx] = true;
+
+  let next = state.currentLayer + 1;
+  while (next < COLORS.length && state.perLayerTiles[next].length === 0) next++;
+  if (next < COLORS.length) {
+    state.currentLayer = next;
+    revealLayer(next);
+  }
 }
 
 /* ---------- Tiles rendering ---------- */
@@ -306,7 +329,7 @@ function addReserveTileEl(tile) {
   div.className = "tile reserve";
   div.style.background = COLORS[tile.colorIdx].hex;
   div.textContent = tile.value;
-  div.addEventListener("click", () => attemptPlace(tile));
+  div.dataset.tileId = String(tile.id);
   reserveGridEl.appendChild(div);
   reserveTileEls.set(tile.id, div);
 }
@@ -316,6 +339,18 @@ function removeReserveTileEl(tile) {
   if (div) div.remove();
   reserveTileEls.delete(tile.id);
 }
+
+// A single delegated listener on the grid itself (never destroyed or
+// recreated) handles every tap, present or future - individual tile divs
+// come and go, but this listener never goes stale no matter how the DOM
+// underneath it churns.
+reserveGridEl.addEventListener("click", (e) => {
+  const tileEl = e.target.closest(".tile.reserve");
+  if (!tileEl) return;
+  const id = Number(tileEl.dataset.tileId);
+  const tile = state.reservePool.find((t) => t.id === id);
+  if (tile) attemptPlace(tile);
+});
 
 function renderTiles() {
   renderActiveSlots();
@@ -473,6 +508,7 @@ function trySpawnAntForSlot(slotIndex) {
 
   animateAntTrip(cell, tile.colorIdx);
   maybeSpawnStraggler(tile.colorIdx);
+  checkLayerAdvance(tile.colorIdx);
 
   if (tile.value <= 0) {
     if (el) el.classList.add("clearing");
@@ -588,7 +624,7 @@ function showResult(won) {
     nextBtn.onclick = () => startLevel(state.levelIndex + 1);
   } else {
     overlayTitleEl.textContent = "Colony Stuck!";
-    overlaySubEl.textContent = "All 5 slots are full of blocks whose colors are already gone from the board. Watch the picture next time - stop placing a color once it disappears.";
+    overlaySubEl.textContent = "All 5 slots are jammed with stragglers from colors that are already gone. Watch the picture - once a layer disappears, stop placing that color.";
     nextBtn.textContent = "Retry Level ↻";
     nextBtn.onclick = () => startLevel(state.levelIndex);
   }
