@@ -158,11 +158,6 @@ body {
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.25));
 }
 
-#activeRow {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-}
 #hint {
   font-size: 11.5px;
   line-height: 1.35;
@@ -172,9 +167,14 @@ body {
 }
 #reserveGrid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
   padding: 2px 4px 10px;
+}
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .tile {
@@ -191,19 +191,23 @@ body {
   box-shadow: 0 3px 0 rgba(0,0,0,.2), inset 0 2px 4px rgba(255,255,255,.35);
   border: 2px solid rgba(255,255,255,.6);
 }
-.tile.reserve {
-  cursor: pointer;
+.tile.front { cursor: pointer; }
+.tile.front:active { transform: translateY(1.5px); box-shadow: 0 0.5px 0 rgba(0,0,0,.18); }
+.tile.front:not(.activated) {
+  animation: tapPrompt 1.4s ease-in-out infinite;
+}
+@keyframes tapPrompt {
+  0%, 100% { box-shadow: 0 3px 0 rgba(0,0,0,.2), inset 0 2px 4px rgba(255,255,255,.35), 0 0 0 0 rgba(255,255,255,.8); }
+  50% { box-shadow: 0 3px 0 rgba(0,0,0,.2), inset 0 2px 4px rgba(255,255,255,.35), 0 0 0 4px rgba(255,255,255,0); }
+}
+.tile.locked {
+  cursor: default;
   font-size: 12px;
   border-radius: 10px;
   border-width: 1.5px;
-  box-shadow: 0 2px 0 rgba(0,0,0,.18), inset 0 1.5px 3px rgba(255,255,255,.35);
-}
-.tile.reserve:active { transform: translateY(1.5px); box-shadow: 0 0.5px 0 rgba(0,0,0,.18); }
-.tile.slot { cursor: default; }
-.tile.empty {
-  background: transparent !important;
-  border: 2px dashed rgba(255,255,255,.5);
-  box-shadow: none;
+  opacity: 0.55;
+  filter: grayscale(0.3);
+  box-shadow: 0 2px 0 rgba(0,0,0,.15), inset 0 1.5px 3px rgba(255,255,255,.25);
 }
 .tile.hit { animation: pop .18s ease; }
 @keyframes pop {
@@ -215,20 +219,12 @@ body {
 @keyframes clearOut {
   to { transform: scale(0); opacity: 0; }
 }
-.tile.slot.starved {
+.tile.front.starved {
   animation: starvedPulse 1s ease-in-out infinite;
 }
 @keyframes starvedPulse {
   0%, 100% { box-shadow: 0 3px 0 rgba(0,0,0,.2), 0 0 0 2px rgba(220,38,38,.7); }
   50% { box-shadow: 0 3px 0 rgba(0,0,0,.2), 0 0 0 5px rgba(220,38,38,0); }
-}
-
-#activeRow.shake { animation: shake .35s ease; }
-@keyframes shake {
-  10%, 90% { transform: translateX(-2px); }
-  20%, 80% { transform: translateX(4px); }
-  30%, 50%, 70% { transform: translateX(-7px); }
-  40%, 60% { transform: translateX(7px); }
 }
 
 #bottomBar {

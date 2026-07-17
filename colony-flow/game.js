@@ -89,7 +89,7 @@ function buildGrid(cols, rows, shapeName) {
       const nx = shape.xRange[0] + (c / (cols - 1)) * (shape.xRange[1] - shape.xRange[0]);
       const layer = cellLayer(shape.test, nx, ny);
       if (layer > 0) {
-        cells.push({ r, c, colorIdx: layer - 1, cleared: false });
+        cells.push({ r, c, colorIdx: layer - 1, cleared: false, exposed: false });
       }
     }
   }
@@ -111,18 +111,17 @@ function levelDef(levelIndex) {
 
 /* ---------- Game state ---------- */
 
-const SLOT_COUNT = 5;
+const COLUMN_COUNT = 5;
 
 const state = {
   levelIndex: 0,
   cols: 0, rows: 0,
   cells: [],
-  colorCells: [],       // colorCells[i] = array of not-yet-claimed cell refs for color i
+  grid2D: [],        // grid2D[r][c] = cell object or null
+  exposedQueue: [],  // exposedQueue[colorIdx] = currently-reachable, not-yet-cleared cells of that color
   totalCells: 0,
   clearedCells: 0,
-  activeSlots: [],      // fixed-length array of SLOT_COUNT; each entry is a tile object or null
-  reservePool: [],      // every color's blocks, shuffled together from the start
-  currentLayer: 0,      // the one color layer ants can currently reach - everything else just sits idle
+  columns: [],       // COLUMN_COUNT queues; columns[i][0] is that column's front (only tappable) tile
   speed: 1,
   nextTileId: 1,
   gameEnded: false
@@ -170,6 +169,51 @@ function roundRect(c, x, y, w, h, r) {
   c.closePath();
 }
 
+/* ---------- Spatial exposure (the "growing hole" mechanic) ---------- */
+//
+// Ants can only reach a cell that's currently exposed - touching the outside
+// of the picture, or touching a cell that's already been cleared. Clearing a
+// red cell opens a specific gap; only the orange (or whatever) cell directly
+// behind THAT gap becomes reachable, not all of orange everywhere. This is
+// tracked with a plain 4-neighbor flood fill seeded from the picture's outer
+// boundary, growing inward one cleared cell at a time.
+
+function neighborsOf(r, c) {
+  return [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]];
+}
+
+function isBoundaryCell(cell) {
+  for (const [nr, nc] of neighborsOf(cell.r, cell.c)) {
+    if (nr < 0 || nr >= state.rows || nc < 0 || nc >= state.cols || !state.grid2D[nr][nc]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function computeInitialExposure() {
+  state.exposedQueue = COLORS.map(() => []);
+  for (const cell of state.cells) {
+    cell.exposed = isBoundaryCell(cell);
+    if (cell.exposed) state.exposedQueue[cell.colorIdx].push(cell);
+  }
+}
+
+function exposeNeighbors(cell) {
+  for (const [nr, nc] of neighborsOf(cell.r, cell.c)) {
+    if (nr < 0 || nr >= state.rows || nc < 0 || nc >= state.cols) continue;
+    const n = state.grid2D[nr][nc];
+    if (!n || n.cleared || n.exposed) continue;
+    n.exposed = true;
+    state.exposedQueue[n.colorIdx].push(n);
+  }
+}
+
+function pickCellToClear(colorIdx) {
+  const arr = state.exposedQueue[colorIdx];
+  return arr.length ? arr.pop() : null;
+}
+
 /* ---------- Level setup ---------- */
 
 function splitIntoChunks(total, min, max) {
@@ -204,153 +248,101 @@ function startLevel(index) {
   state.clearedCells = 0;
   state.gameEnded = false;
 
-  state.colorCells = COLORS.map(() => []);
-  for (const cell of state.cells) state.colorCells[cell.colorIdx].push(cell);
+  state.grid2D = Array.from({ length: def.rows }, () => new Array(def.cols).fill(null));
+  for (const cell of state.cells) state.grid2D[cell.r][cell.c] = cell;
+  computeInitialExposure();
 
-  // The picture is painted in concentric layers (outermost color first, like
-  // an onion), and ants can only reach a layer once every layer covering it
-  // from outside has been fully carried away. This is the puzzle: every
-  // color's blocks are shuffled together in the reserve pool from the start -
-  // the game does NOT filter them for you. You have to read the picture to
-  // work out which color is currently the exposed outer ring and place only
-  // that one. A block of a color that isn't exposed yet just sits in its slot
-  // doing nothing (its ants have nowhere to go) until that layer's turn comes
-  // around - and if you fill all 5 slots with blocks that aren't reachable
-  // yet, the current layer can never finish and the game is over. Each
-  // layer's tiles exactly partition its own pixel count, so once a color IS
-  // the exposed layer, placing any combination of its blocks always fully
-  // resolves it - the puzzle is entirely about reading the board correctly,
-  // not about luck.
-  const perLayerTiles = COLORS.map(() => []);
+  // Each color's blocks exactly partition its own pixel count. Blocks are
+  // generated in layer order (outer color first, inner color last, only
+  // shuffled within each color) and dealt round-robin into the 5 columns -
+  // so every column starts with an outer, already-reachable block, and stays
+  // roughly paced with how the exposed hole grows inward as play continues.
+  const perColorCounts = COLORS.map(() => 0);
+  for (const cell of state.cells) perColorCounts[cell.colorIdx]++;
+
+  const orderedTiles = [];
   COLORS.forEach((_, i) => {
-    const count = state.colorCells[i].length;
+    const count = perColorCounts[i];
     if (count === 0) return;
-    for (const value of splitIntoChunks(count, 6, 20)) {
-      perLayerTiles[i].push({ id: state.nextTileId++, colorIdx: i, value, maxValue: value });
-    }
+    const tiles = splitIntoChunks(count, 6, 20).map((value) => ({
+      id: state.nextTileId++, colorIdx: i, value, maxValue: value, activated: false
+    }));
+    shuffle(tiles);
+    orderedTiles.push(...tiles);
   });
 
-  const pool = [];
-  perLayerTiles.forEach((tiles) => pool.push(...tiles));
-  shuffle(pool);
-
-  state.reservePool = pool;
-  state.activeSlots = new Array(SLOT_COUNT).fill(null);
-
-  state.currentLayer = 0;
-  while (state.currentLayer < COLORS.length && perLayerTiles[state.currentLayer].length === 0) {
-    state.currentLayer++;
-  }
+  state.columns = Array.from({ length: COLUMN_COUNT }, () => []);
+  orderedTiles.forEach((tile, i) => state.columns[i % COLUMN_COUNT].push(tile));
 
   document.getElementById("levelNum").textContent = String(index + 1);
   setupCanvas();
-  initActiveSlotEls();
-  renderTiles();
+  initColumnEls();
+  renderAllColumns();
   updateProgress();
   hideOverlay();
   startSpawnLoop();
 }
 
-// Once the current layer's pixels are all claimed, unlock the next layer that
-// actually has pixels (skipping any color a shape happens not to use). Any
-// tile of that color already sitting in a slot (placed early, in advance)
-// starts getting ants immediately.
-function checkLayerAdvance(colorIdx) {
-  if (colorIdx !== state.currentLayer) return;
-  if (state.colorCells[colorIdx].length > 0) return;
+/* ---------- Column queue rendering ---------- */
 
-  let next = state.currentLayer + 1;
-  while (next < COLORS.length && state.colorCells[next].length === 0) next++;
-  if (next < COLORS.length) {
-    state.currentLayer = next;
-    renderActiveSlots();
-  }
-}
-
-/* ---------- Tiles rendering ---------- */
-
-const activeRowEl = document.getElementById("activeRow");
 const reserveGridEl = document.getElementById("reserveGrid");
+const columnEls = [];
 
-// The 5 slot elements are created once and reused for the whole session -
-// only their content/classes change - so renderActiveSlots() never has to
-// tear down and recreate them.
-function initActiveSlotEls() {
-  if (activeRowEl.children.length === SLOT_COUNT) return;
-  activeRowEl.innerHTML = "";
-  for (let i = 0; i < SLOT_COUNT; i++) {
-    const div = document.createElement("div");
-    div.className = "tile empty";
-    activeRowEl.appendChild(div);
-  }
-}
-
-// Active slots and the reserve pool are rendered independently. Slots clear
-// constantly on their own (idle ants), and rebuilding the reserve grid's DOM
-// every time that happens - even though the reserve pool itself didn't change -
-// would occasionally rip out the exact tile a player is mid-tap on, on a real
-// phone where a touch gesture takes noticeably longer than a synthetic click.
-// So renderReservePool() only ever runs when the reserve pool itself changes.
-function renderActiveSlots() {
-  for (let i = 0; i < SLOT_COUNT; i++) {
-    const tile = state.activeSlots[i];
-    const div = activeRowEl.children[i];
-    if (tile) {
-      div.className = "tile slot";
-      div.style.background = COLORS[tile.colorIdx].hex;
-      div.textContent = tile.value;
-      div.dataset.tileId = String(tile.id);
-      div.classList.toggle("starved", tile.colorIdx !== state.currentLayer && tile.value > 0);
-    } else {
-      div.className = "tile empty";
-      div.textContent = "";
-      delete div.dataset.tileId;
-    }
-  }
-}
-
-// Reserve tiles get individual add/remove calls instead of a full rebuild, so
-// placing or straggler-spawning one tile never disturbs the DOM node of any
-// other tile a player might be mid-tap on at that exact moment.
-const reserveTileEls = new Map();
-
-function initReservePool() {
+function initColumnEls() {
   reserveGridEl.innerHTML = "";
-  reserveTileEls.clear();
-  for (const tile of state.reservePool) addReserveTileEl(tile);
+  columnEls.length = 0;
+  for (let i = 0; i < COLUMN_COUNT; i++) {
+    const col = document.createElement("div");
+    col.className = "column";
+    reserveGridEl.appendChild(col);
+    columnEls.push(col);
+  }
 }
 
-function addReserveTileEl(tile) {
-  const div = document.createElement("div");
-  div.className = "tile reserve";
-  div.style.background = COLORS[tile.colorIdx].hex;
-  div.textContent = tile.value;
-  div.dataset.tileId = String(tile.id);
-  reserveGridEl.appendChild(div);
-  reserveTileEls.set(tile.id, div);
+// Only the front (first) tile of a column is rendered as tappable; the rest
+// of that column is shown locked underneath, in order, like a queue. Only
+// this one column's DOM gets rebuilt when it changes - the other 4 columns
+// are never touched, so a tap in progress on one column can never be
+// disturbed by something happening in another.
+function renderColumn(i) {
+  const col = columnEls[i];
+  col.innerHTML = "";
+  state.columns[i].forEach((tile, rowIdx) => {
+    const div = document.createElement("div");
+    div.style.background = COLORS[tile.colorIdx].hex;
+    div.textContent = tile.value;
+    if (rowIdx === 0) {
+      div.className = "tile front" + (tile.activated ? " activated" : "");
+      div.dataset.colIndex = String(i);
+      if (tile.activated && tile.value > 0 && state.exposedQueue[tile.colorIdx].length === 0) {
+        div.classList.add("starved");
+      }
+    } else {
+      div.className = "tile locked";
+    }
+    col.appendChild(div);
+  });
 }
 
-function removeReserveTileEl(tile) {
-  const div = reserveTileEls.get(tile.id);
-  if (div) div.remove();
-  reserveTileEls.delete(tile.id);
+function renderAllColumns() {
+  for (let i = 0; i < COLUMN_COUNT; i++) renderColumn(i);
 }
 
-// A single delegated listener on the grid itself (never destroyed or
-// recreated) handles every tap, present or future - individual tile divs
-// come and go, but this listener never goes stale no matter how the DOM
-// underneath it churns.
+// One delegated listener on the whole grid - never destroyed, so it can
+// never go stale no matter how many times individual columns re-render.
 reserveGridEl.addEventListener("click", (e) => {
-  const tileEl = e.target.closest(".tile.reserve");
+  const tileEl = e.target.closest(".tile.front");
   if (!tileEl) return;
-  const id = Number(tileEl.dataset.tileId);
-  const tile = state.reservePool.find((t) => t.id === id);
-  if (tile) attemptPlace(tile);
+  activateFront(Number(tileEl.dataset.colIndex));
 });
 
-function renderTiles() {
-  renderActiveSlots();
-  initReservePool();
+function activateFront(colIndex) {
+  if (state.gameEnded) return;
+  const tile = state.columns[colIndex][0];
+  if (!tile || tile.activated) return;
+  tile.activated = true;
+  renderColumn(colIndex);
+  checkDeadlock();
 }
 
 function updateProgress() {
@@ -359,7 +351,7 @@ function updateProgress() {
   document.getElementById("progressPct").textContent = pct + "%";
 }
 
-/* ---------- Gameplay: placing blocks / ants clearing pixels ---------- */
+/* ---------- Gameplay: ants clearing pixels ---------- */
 
 const nestHole = document.getElementById("nestHole");
 const antLayer = document.createElement("div");
@@ -423,16 +415,6 @@ function clearAnts() {
   activeAnts.clear();
 }
 
-function pickCellToClear(colorIdx) {
-  // Ants can only reach the one color that's currently the exposed outer
-  // layer - a block of any other color has nothing to claim yet, no matter
-  // how many pixels of that color are still sitting on the board underneath.
-  if (colorIdx !== state.currentLayer) return null;
-  // pop (claim) immediately so two concurrent ants never target the same pixel
-  const arr = state.colorCells[colorIdx];
-  return arr.length ? arr.pop() : null;
-}
-
 function animateAntTrip(cell, colorIdx) {
   const hex = COLORS[colorIdx].hex;
   const nest = nestPagePos();
@@ -454,6 +436,7 @@ function animateAntTrip(cell, colorIdx) {
   setTimeout(() => {
     cell.cleared = true;
     state.clearedCells++;
+    exposeNeighbors(cell);
     queueRedraw();
     updateProgress();
     checkWin();
@@ -467,18 +450,18 @@ function animateAntTrip(cell, colorIdx) {
   }, travel);
 }
 
-// Attempts one ant trip for the tile in this slot. Only decrements the tile's
-// counter if a matching pixel was actually available to claim - a tile whose
-// color isn't the currently-reachable layer simply sits at its current value,
-// doing nothing, until that layer's turn comes around.
-function trySpawnAntForSlot(slotIndex) {
-  const tile = state.activeSlots[slotIndex];
-  if (!tile || tile.value <= 0) return;
+// Attempts one ant trip for this column's front tile. Only decrements the
+// tile's counter if a matching pixel was actually reachable right now - a
+// tile whose color isn't currently exposed anywhere simply sits at its
+// current value, doing nothing, until a gap opens into it.
+function trySpawnAntForColumn(colIndex) {
+  const tile = state.columns[colIndex][0];
+  if (!tile || !tile.activated || tile.value <= 0) return;
   const cell = pickCellToClear(tile.colorIdx);
-  if (!cell) return; // not the exposed layer yet (or no supply left right now)
+  if (!cell) return; // not exposed yet
 
   tile.value -= 1;
-  const el = activeRowEl.querySelector('[data-tile-id="' + tile.id + '"]');
+  const el = columnEls[colIndex].firstElementChild;
   if (el) {
     el.textContent = Math.max(tile.value, 0);
     el.classList.remove("hit");
@@ -487,35 +470,15 @@ function trySpawnAntForSlot(slotIndex) {
   }
 
   animateAntTrip(cell, tile.colorIdx);
-  checkLayerAdvance(tile.colorIdx);
 
   if (tile.value <= 0) {
     if (el) el.classList.add("clearing");
     setTimeout(() => {
-      const idx = state.activeSlots.indexOf(tile);
-      if (idx === -1) return; // already cleared out
-      state.activeSlots[idx] = null;
-      renderActiveSlots();
+      if (state.columns[colIndex][0] === tile) state.columns[colIndex].shift();
+      renderColumn(colIndex);
+      checkDeadlock();
     }, 220);
   }
-}
-
-function attemptPlace(tile) {
-  if (state.gameEnded) return;
-  const idx = state.activeSlots.indexOf(null);
-  if (idx === -1) {
-    activeRowEl.classList.remove("shake");
-    void activeRowEl.offsetWidth;
-    activeRowEl.classList.add("shake");
-    return;
-  }
-  const poolIdx = state.reservePool.indexOf(tile);
-  if (poolIdx === -1) return;
-  state.reservePool.splice(poolIdx, 1);
-  removeReserveTileEl(tile);
-  state.activeSlots[idx] = tile;
-  renderActiveSlots();
-  checkDeadlock();
 }
 
 /* ---------- Auto spawn loop (idle ants) ---------- */
@@ -529,28 +492,29 @@ function startSpawnLoop() {
     if (state.gameEnded) return;
     const now = performance.now();
     let anyStalled = false;
-    state.activeSlots.forEach((tile, i) => {
-      if (!tile || tile.value <= 0) return;
-      const key = "s" + i;
+    for (let i = 0; i < COLUMN_COUNT; i++) {
+      const tile = state.columns[i][0];
+      if (!tile || !tile.activated || tile.value <= 0) continue;
+      const key = "c" + i;
       if (nextSpawnAt[key] === undefined) nextSpawnAt[key] = now + 200 + Math.random() * 300;
       if (now >= nextSpawnAt[key]) {
         const baseInterval = 1050 / state.speed;
         nextSpawnAt[key] = now + baseInterval * (0.7 + Math.random() * 0.6);
         const before = tile.value;
-        trySpawnAntForSlot(i);
-        if (tile.value === before && tile.colorIdx !== state.currentLayer) anyStalled = true;
+        trySpawnAntForColumn(i);
+        if (tile.value === before && state.exposedQueue[tile.colorIdx].length === 0) anyStalled = true;
       }
-    });
-    if (anyStalled) { updateStarvedClasses(); checkDeadlock(); }
+    }
+    if (anyStalled) { updateStarvedIndicators(); checkDeadlock(); }
   }, 120);
 }
 
-function updateStarvedClasses() {
-  for (let i = 0; i < SLOT_COUNT; i++) {
-    const tile = state.activeSlots[i];
-    const el = activeRowEl.children[i];
-    if (!el) continue;
-    const starved = !!tile && tile.value > 0 && tile.colorIdx !== state.currentLayer;
+function updateStarvedIndicators() {
+  for (let i = 0; i < COLUMN_COUNT; i++) {
+    const tile = state.columns[i][0];
+    const el = columnEls[i].firstElementChild;
+    if (!el || !tile) continue;
+    const starved = tile.activated && tile.value > 0 && state.exposedQueue[tile.colorIdx].length === 0;
     el.classList.toggle("starved", starved);
   }
 }
@@ -571,17 +535,17 @@ function checkWin() {
   }
 }
 
-// A slot is dead weight while its color isn't the one ants can currently
-// reach. If every slot is full of colors that aren't the exposed layer, the
-// exposed layer can never finish (no slot is free to place its blocks) and
-// nothing can ever unlock the colors waiting behind it either - that's a
+// Every column's front tile is "dead weight" while its color isn't currently
+// exposed anywhere on the board. If none of the columns still holding tiles
+// have a reachable front color, nothing can ever clear another pixel again -
+// no gap can grow, so nothing new can ever become exposed either. That's a
 // permanent deadlock, not just a delay.
 function checkDeadlock() {
   if (state.gameEnded) return;
-  const allFull = state.activeSlots.every(s => s !== null);
-  if (!allFull) return;
-  const allWrongLayer = state.activeSlots.every(s => s.colorIdx !== state.currentLayer);
-  if (allWrongLayer) {
+  const nonEmpty = state.columns.filter(col => col.length > 0);
+  if (nonEmpty.length === 0) return; // nothing left - win already handles this
+  const anyReachable = nonEmpty.some(col => state.exposedQueue[col[0].colorIdx].length > 0);
+  if (!anyReachable) {
     state.gameEnded = true;
     stopSpawnLoop();
     showResult(false);
@@ -603,7 +567,7 @@ function showResult(won) {
     nextBtn.onclick = () => startLevel(state.levelIndex + 1);
   } else {
     overlayTitleEl.textContent = "Colony Stuck!";
-    overlaySubEl.textContent = "All 5 slots are filled with colors that aren't the exposed layer, so nothing can progress. Check the board before placing - only the outermost visible color is reachable.";
+    overlaySubEl.textContent = "None of the columns' front blocks match a color that's currently exposed, so no gap can ever grow further. Watch for which color has an opening before it's the only one left.";
     nextBtn.textContent = "Retry Level ↻";
     nextBtn.onclick = () => startLevel(state.levelIndex);
   }
