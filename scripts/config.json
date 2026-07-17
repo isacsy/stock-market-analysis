@@ -1,0 +1,36 @@
+{
+  "max_items_per_topic": 12,
+  "max_item_age_days": 10,
+  "topics": [
+    {
+      "name": "Apple / AAPL",
+      "type": "google_news",
+      "query": "Apple AAPL stock OR earnings OR iPhone"
+    },
+    {
+      "name": "Stock Market",
+      "type": "google_news",
+      "query": "stock market OR Wall Street OR S&P 500"
+    },
+    {
+      "name": "Business & Financial Analytics",
+      "type": "google_news",
+      "query": "\"financial analytics\" OR \"business analytics\" OR \"data-driven decision making\""
+    },
+    {
+      "name": "Malaysia Finance",
+      "type": "google_news",
+      "query": "Malaysia economy OR Bursa Malaysia OR Bank Negara"
+    },
+    {
+      "name": "General Finance",
+      "type": "rss",
+      "url": "https://feeds.marketwatch.com/marketwatch/topstories/"
+    },
+    {
+      "name": "General Finance",
+      "type": "rss",
+      "url": "https://www.cnbc.com/id/10001147/device/rss/rss.html"
+    }
+  ]
+}

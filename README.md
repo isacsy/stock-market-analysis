@@ -1,4 +1,4 @@
-# Isabel Chong Sui Ying – Financial Analysis Portfolio
+# Isabel Chong Sui Ying ï¿½ Financial Analysis Portfolio
 
 Hello and welcome.
 This is my personal financial analysis portfolio, where I showcase my projects related to finance, business and data-driven insights.
@@ -6,7 +6,7 @@ This is my personal financial analysis portfolio, where I showcase my projects r
 ## About Me
 My name is Isabel Chong Sui Ying, and I was born and raised in Sabah, Malaysia.
 
-I am currently pursuing a Bachelor’s Degree in Finance at Universiti Tunku Abdul Rahman(UTAR), Kampar, Perak, Malaysia. 
+I am currently pursuing a Bachelorï¿½s Degree in Finance at Universiti Tunku Abdul Rahman(UTAR), Kampar, Perak, Malaysia. 
 
 I am particularly interested in areas related to:
 - Business & Financial Analytics 
@@ -23,20 +23,20 @@ Contact:
 - GitHub: https://github.com/isacsy
 
 # About this project - stock-market-analysis
-This project analyzes the stock performance of Apple Inc. (AAPL) over a one-year period from April 2025 to April 2026. The aim is to evaluate return, risk, and price trends to assess Apple’s attractiveness as an investment.
+This project analyzes the stock performance of Apple Inc. (AAPL) over a one-year period from April 2025 to April 2026. The aim is to evaluate return, risk, and price trends to assess Appleï¿½s attractiveness as an investment.
 The analysis focuses on transforming raw stock price data into meaningful financial insights using data analysis techniques.
 
 
-## Apple Inc. (AAPL) Stock Performance & Risk Analysis (Apr 2025 – Apr 2026)
+## Apple Inc. (AAPL) Stock Performance & Risk Analysis (Apr 2025 ï¿½ Apr 2026)
 
 
 ## Objective
-The objective of this project is to identify and analyze the performance of Apple Inc. (AAPL) over a one year period (24 Apr 2025 – 24 Apr 2026)using historical stock price data. The focus is to understand return, risk, and overall price trends over the year.
+The objective of this project is to identify and analyze the performance of Apple Inc. (AAPL) over a one year period (24 Apr 2025 ï¿½ 24 Apr 2026)using historical stock price data. The focus is to understand return, risk, and overall price trends over the year.
 
 
 ## Dataset
 - Data Source: Yahoo Finance & Investing.com  
-- Period: 24 April 2025 – 24 April 2026  
+- Period: 24 April 2025 ï¿½ 24 April 2026  
 - Frequency: Daily  
 - Main variable data: Closing Price  
 
@@ -73,7 +73,7 @@ Several basic yet important financial metrics were calculated:
 
 
 ## Conclusion
-In conclusion, Apple’s stock performed well during the year, with stable growth and moderate risk. Although there are short-term fluctuations of the closing price, the general trend still remains positive, which means that the stock is relatively stable in the long run.
+In conclusion, Appleï¿½s stock performed well during the year, with stable growth and moderate risk. Although there are short-term fluctuations of the closing price, the general trend still remains positive, which means that the stock is relatively stable in the long run.
 
 
 ## Tools Used
@@ -82,4 +82,22 @@ In conclusion, Apple’s stock performed well during the year, with stable growth 
 - Tableau (Data Visualization & Dashboard)
 - GitHub  
 
+
+# News Feed App
+
+A self-updating news feed that scans for stories relevant to my finance work and interests â€” Apple (AAPL), the stock market, business & financial analytics, and Malaysia's economy â€” and keeps them all in one place.
+
+- **`docs/`** â€” the web app. Open `docs/index.html` (or enable GitHub Pages on this repo pointed at `/docs`) to browse the feed, search headlines, and filter by topic.
+- **`scripts/fetch_news.py`** â€” pulls the latest stories per topic from Google News and finance RSS feeds, dedupes them, and writes `docs/data/news.json`.
+- **`scripts/config.json`** â€” the list of topics/keywords to track. Edit this to add or change interests.
+- **`.github/workflows/update-news.yml`** â€” a GitHub Action that runs the fetch script every 3 hours and commits any changes, so the feed refreshes automatically with no server to maintain.
+
+To enable the live site: repo **Settings â†’ Pages â†’ Deploy from a branch â†’ `main` / `docs`**. The Action needs no setup â€” it starts running on this schedule as soon as it's merged to the default branch (scheduled workflows only fire from the repo's default branch).
+
+To run it locally:
+```bash
+pip install requests
+python3 scripts/fetch_news.py   # writes docs/data/news.json
+python3 -m http.server 8000 --directory docs
+```
 

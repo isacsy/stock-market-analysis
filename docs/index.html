@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Isabel's News Feed</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="app-header">
+  <div class="header-inner">
+    <h1>📈 My News Feed</h1>
+    <p class="subtitle">Auto-curated stories on Apple, markets, finance analytics &amp; Malaysia economy</p>
+  </div>
+</header>
+
+<main class="app-main">
+  <div class="controls">
+    <input type="search" id="search-input" placeholder="Search headlines..." aria-label="Search headlines" />
+    <div class="topic-chips" id="topic-chips"></div>
+  </div>
+
+  <div class="status-bar">
+    <span id="status-text">Loading...</span>
+    <button id="refresh-btn" title="Refresh now">⟳ Refresh</button>
+  </div>
+
+  <div id="news-list" class="news-list" aria-live="polite"></div>
+  <p id="empty-state" class="empty-state" hidden>No stories match your filters right now.</p>
+</main>
+
+<footer class="app-footer">
+  <p>Updated automatically every few hours via GitHub Actions. See <code>scripts/fetch_news.py</code>.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
