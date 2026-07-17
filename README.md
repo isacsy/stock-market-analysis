@@ -83,13 +83,23 @@ In conclusion, Apple�s stock performed well during the year, with stable growt
 - GitHub  
 
 
-# News Feed App
+# News Dashboard
 
-A self-updating news feed that scans for stories relevant to my finance work and interests — Apple (AAPL), the stock market, business & financial analytics, and Malaysia's economy — and keeps them all in one place.
+A self-updating news dashboard that scans for stories relevant to my work and interests and keeps them all in one place, organized into **Finance, Work, Technology, Education, Projects, and Personal Interests**.
 
-- **`docs/`** — the web app. Open `docs/index.html` (or enable GitHub Pages on this repo pointed at `/docs`) to browse the feed, search headlines, and filter by topic.
-- **`scripts/fetch_news.py`** — pulls the latest stories per topic from Google News and finance RSS feeds, dedupes them, and writes `docs/data/news.json`.
-- **`scripts/config.json`** — the list of topics/keywords to track. Edit this to add or change interests.
+### Features
+- **Daily Brief** at the top summarizing the most important recent stories (window is adjustable: last hour / day / week).
+- **News cards** with headline, source, time, extractive key points, and a "why recommended" note showing which topic(s) matched.
+- **Section tabs**, source filter, importance filter (High/Medium/Low), and search.
+- **Preferences** (gear icon): keywords/companies/locations to *watch* (ranked higher) and to *block* (hidden), plus the Daily Brief time window. Stored per-browser (no account/backend).
+- **Bookmarks** and **Read Later**, with dedicated views.
+- **Feedback**: "More like this" / "Not relevant" buttons nudge future ranking via a simple per-topic weight, so the feed adapts over time.
+- **Notifications** (bell icon): browser notifications for new High-importance or watch-keyword stories while the dashboard is open in a tab — there's no backend, so this doesn't fire while the browser itself is closed.
+
+### How it's built
+- **`docs/`** — the static web app (`index.html`/`styles.css`/`app.js`). Open `docs/index.html` directly, or enable GitHub Pages pointed at `/docs` for a live URL.
+- **`scripts/fetch_news.py`** — pulls stories per topic/section from Google News and finance RSS feeds, drops blocklisted stories, dedupes across topics, and generates key points / importance / a Daily Brief using deterministic rules (no external AI calls, so it runs free with no API key).
+- **`scripts/config.json`** — the sections, topics, RSS/Google-News queries, and a server-side blocklist. Edit this to change what gets scanned in the background.
 - **`.github/workflows/update-news.yml`** — a GitHub Action that runs the fetch script every 3 hours and commits any changes, so the feed refreshes automatically with no server to maintain.
 
 To enable the live site: repo **Settings → Pages → Deploy from a branch → `main` / `docs`**. The Action needs no setup — it starts running on this schedule as soon as it's merged to the default branch (scheduled workflows only fire from the repo's default branch).

@@ -3,21 +3,42 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Isabel's News Feed</title>
+<title>Isabel's News Dashboard</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 <header class="app-header">
   <div class="header-inner">
-    <h1>📈 My News Feed</h1>
-    <p class="subtitle">Auto-curated stories on Apple, markets, finance analytics &amp; Malaysia economy</p>
+    <div class="header-titles">
+      <h1>📈 My News Dashboard</h1>
+      <p class="subtitle">Auto-curated stories across Work, Technology, Finance, Education, Projects &amp; Personal Interests</p>
+    </div>
+    <div class="header-actions">
+      <button id="notif-btn" class="icon-btn" title="Enable notifications for important stories">🔔</button>
+      <button id="prefs-btn" class="icon-btn" title="Preferences">⚙️</button>
+    </div>
   </div>
 </header>
 
 <main class="app-main">
-  <div class="controls">
+  <section class="daily-brief" id="daily-brief">
+    <h2>Daily Brief</h2>
+    <p id="daily-brief-text">Loading...</p>
+  </section>
+
+  <nav class="section-tabs" id="section-tabs"></nav>
+
+  <div class="filter-row">
     <input type="search" id="search-input" placeholder="Search headlines..." aria-label="Search headlines" />
-    <div class="topic-chips" id="topic-chips"></div>
+    <select id="source-select" aria-label="Filter by source">
+      <option value="">All sources</option>
+    </select>
+    <div class="importance-chips" id="importance-chips"></div>
+    <div class="view-chips" id="view-chips"></div>
+    <select id="sort-select" aria-label="Sort order">
+      <option value="ranked">Ranked for you</option>
+      <option value="newest">Newest first</option>
+    </select>
   </div>
 
   <div class="status-bar">
@@ -32,6 +53,35 @@
 <footer class="app-footer">
   <p>Updated automatically every few hours via GitHub Actions. See <code>scripts/fetch_news.py</code>.</p>
 </footer>
+
+<dialog id="prefs-dialog">
+  <form method="dialog" class="prefs-form">
+    <h2>Preferences</h2>
+
+    <label class="prefs-label" for="watch-input">Watch keywords / companies / locations</label>
+    <p class="prefs-hint">Stories mentioning these get ranked higher for you.</p>
+    <div class="tag-input" id="watch-tags"></div>
+    <input type="text" id="watch-input" placeholder="Add a keyword and press Enter" />
+
+    <label class="prefs-label" for="block-input">Block keywords / subjects</label>
+    <p class="prefs-hint">Stories mentioning these are hidden from your feed.</p>
+    <div class="tag-input" id="block-tags"></div>
+    <input type="text" id="block-input" placeholder="Add a keyword and press Enter" />
+
+    <label class="prefs-label" for="brief-window-select">Daily Brief window</label>
+    <select id="brief-window-select">
+      <option value="hour">Last hour (hourly briefing)</option>
+      <option value="day" selected>Last 24 hours (daily briefing)</option>
+      <option value="week">Last 7 days (weekly briefing)</option>
+    </select>
+
+    <p class="prefs-hint">To change which topics/sections are scanned in the background, edit <code>scripts/config.json</code>.</p>
+
+    <div class="prefs-actions">
+      <button type="submit" class="primary-btn">Done</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="app.js"></script>
 </body>

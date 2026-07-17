@@ -1,36 +1,47 @@
 {
   "max_items_per_topic": 12,
   "max_item_age_days": 10,
-  "topics": [
+  "blocklist": [],
+  "sections": [
     {
-      "name": "Apple / AAPL",
-      "type": "google_news",
-      "query": "Apple AAPL stock OR earnings OR iPhone"
+      "name": "Finance",
+      "topics": [
+        { "name": "Apple / AAPL", "type": "google_news", "query": "Apple AAPL stock OR earnings OR iPhone" },
+        { "name": "Stock Market", "type": "google_news", "query": "stock market OR Wall Street OR S&P 500" },
+        { "name": "Malaysia Finance", "type": "google_news", "query": "Malaysia economy OR Bursa Malaysia OR Bank Negara" },
+        { "name": "General Finance", "type": "rss", "url": "https://feeds.marketwatch.com/marketwatch/topstories/" },
+        { "name": "General Finance", "type": "rss", "url": "https://www.cnbc.com/id/10001147/device/rss/rss.html" }
+      ]
     },
     {
-      "name": "Stock Market",
-      "type": "google_news",
-      "query": "stock market OR Wall Street OR S&P 500"
+      "name": "Work",
+      "topics": [
+        { "name": "Business & Financial Analytics", "type": "google_news", "query": "\"financial analytics\" OR \"business analytics\" OR \"data-driven decision making\"" }
+      ]
     },
     {
-      "name": "Business & Financial Analytics",
-      "type": "google_news",
-      "query": "\"financial analytics\" OR \"business analytics\" OR \"data-driven decision making\""
+      "name": "Technology",
+      "topics": [
+        { "name": "Tech Industry", "type": "google_news", "query": "artificial intelligence OR big tech OR fintech" }
+      ]
     },
     {
-      "name": "Malaysia Finance",
-      "type": "google_news",
-      "query": "Malaysia economy OR Bursa Malaysia OR Bank Negara"
+      "name": "Education",
+      "topics": [
+        { "name": "Finance Degrees & Careers", "type": "google_news", "query": "finance degree OR CFA OR finance career OR internship" }
+      ]
     },
     {
-      "name": "General Finance",
-      "type": "rss",
-      "url": "https://feeds.marketwatch.com/marketwatch/topstories/"
+      "name": "Projects",
+      "topics": [
+        { "name": "Data & Portfolio Tools", "type": "google_news", "query": "Tableau OR Excel data analysis OR MySQL analytics" }
+      ]
     },
     {
-      "name": "General Finance",
-      "type": "rss",
-      "url": "https://www.cnbc.com/id/10001147/device/rss/rss.html"
+      "name": "Personal Interests",
+      "topics": [
+        { "name": "Malaysia News", "type": "google_news", "query": "Sabah Malaysia OR Kampar Perak" }
+      ]
     }
   ]
 }

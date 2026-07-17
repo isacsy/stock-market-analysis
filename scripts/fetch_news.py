@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Fetch news relevant to configured topics and write docs/data/news.json.
 
+Groups stories into sections (Work, Technology, Finance, Education, Projects,
+Personal Interests, ...), tags each with which topic(s) matched, generates a
+rule-based summary/key-points/"why recommended" note, scores importance, and
+writes a templated Daily Brief of the top stories.
+
 Run manually with `python3 scripts/fetch_news.py`, or on a schedule via the
 `.github/workflows/update-news.yml` GitHub Action.
 """
@@ -26,6 +31,7 @@ USER_AGENT = (
 )
 REQUEST_TIMEOUT = 15
 TAG_RE = re.compile(r"<[^>]+>")
+SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 
 
 def strip_html(text):
@@ -63,7 +69,6 @@ def parse_feed(xml_text):
     root = ET.fromstring(xml_text)
     items = []
 
-    # RSS 2.0: <rss><channel><item>...
     channel = root.find("channel")
     if channel is not None:
         feed_title = strip_html((channel.findtext("title") or "").strip())
@@ -81,7 +86,6 @@ def parse_feed(xml_text):
             )
         return items
 
-    # Atom: <feed><entry>...
     ns = {"atom": "http://www.w3.org/2005/Atom"}
     entries = root.findall("atom:entry", ns)
     if entries:
@@ -122,7 +126,7 @@ def fetch_topic(topic):
     for raw in raw_items:
         if not raw["title"] or not raw["link"]:
             continue
-        items.append({**raw, "topics": [topic["name"]]})
+        items.append(raw)
     return items
 
 
@@ -131,50 +135,121 @@ def item_key(item):
     return hashlib.sha1((normalized_title or item["link"]).encode("utf-8")).hexdigest()
 
 
+def is_blocked(item, blocklist):
+    if not blocklist:
+        return False
+    haystack = (item["title"] + " " + item["summary"]).lower()
+    return any(term.lower() in haystack for term in blocklist)
+
+
+def key_points(summary, max_points=2):
+    if not summary:
+        return []
+    sentences = [s.strip() for s in SENTENCE_RE.split(summary) if s.strip()]
+    return sentences[:max_points]
+
+
+def why_recommended(topic_names):
+    if len(topic_names) == 1:
+        return f"Matched your \"{topic_names[0]}\" topic."
+    joined = ", ".join(f'"{t}"' for t in topic_names)
+    return f"Matched multiple topics you follow: {joined}."
+
+
+def score_importance(item, topic_names):
+    now = datetime.now(timezone.utc)
+    age_hours = (now - item["published"]).total_seconds() / 3600
+    score = 0
+    score += 2 * (len(topic_names) - 1)  # cross-topic corroboration
+    if age_hours <= 3:
+        score += 2
+    elif age_hours <= 24:
+        score += 1
+    if score >= 3:
+        return "High"
+    if score >= 1:
+        return "Medium"
+    return "Low"
+
+
+def build_daily_brief(items, section_of):
+    if not items:
+        return "No stories yet — the first scheduled scan hasn't run."
+    ranked = sorted(
+        items,
+        key=lambda i: ({"High": 2, "Medium": 1, "Low": 0}[i["importance"]], i["published"]),
+        reverse=True,
+    )
+    top = ranked[:5]
+    bullets = [f"{i['title']} ({', '.join(i['sections'])})" for i in top]
+    return "Top stories right now: " + " | ".join(bullets)
+
+
 def main():
     config = json.loads(CONFIG_PATH.read_text())
     max_per_topic = config.get("max_items_per_topic", 12)
     max_age_days = config.get("max_item_age_days", 10)
+    blocklist = config.get("blocklist", [])
     cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
 
     merged = {}
-    topic_names = []
-    for topic in config["topics"]:
-        if topic["name"] not in topic_names:
-            topic_names.append(topic["name"])
+    section_names = []
 
-        topic_items = fetch_topic(topic)
-        topic_items = [i for i in topic_items if i["published"] and i["published"] >= cutoff]
-        topic_items.sort(key=lambda i: i["published"], reverse=True)
-        topic_items = topic_items[:max_per_topic]
+    for section in config["sections"]:
+        section_name = section["name"]
+        if section_name not in section_names:
+            section_names.append(section_name)
 
-        for item in topic_items:
-            key = item_key(item)
-            if key in merged:
-                for t in item["topics"]:
-                    if t not in merged[key]["topics"]:
-                        merged[key]["topics"].append(t)
-            else:
-                merged[key] = item
+        for topic in section["topics"]:
+            topic_items = fetch_topic(topic)
+            topic_items = [
+                i for i in topic_items
+                if i["published"] and i["published"] >= cutoff and not is_blocked(i, blocklist)
+            ]
+            topic_items.sort(key=lambda i: i["published"], reverse=True)
+            topic_items = topic_items[:max_per_topic]
+
+            for item in topic_items:
+                key = item_key(item)
+                if key in merged:
+                    existing = merged[key]
+                    if topic["name"] not in existing["topics"]:
+                        existing["topics"].append(topic["name"])
+                    if section_name not in existing["sections"]:
+                        existing["sections"].append(section_name)
+                else:
+                    merged[key] = {**item, "topics": [topic["name"]], "sections": [section_name]}
 
     all_items = list(merged.values())
     all_items.sort(key=lambda i: i["published"], reverse=True)
 
-    output_items = [
-        {
-            "title": i["title"],
-            "link": i["link"],
-            "source": i["source"] or "Unknown",
-            "published": i["published"].isoformat(),
-            "summary": i["summary"][:400],
-            "topics": i["topics"],
-        }
-        for i in all_items
-    ]
+    output_items = []
+    for i in all_items:
+        importance = score_importance(i, i["topics"])
+        output_items.append(
+            {
+                "title": i["title"],
+                "link": i["link"],
+                "source": i["source"] or "Unknown",
+                "published": i["published"].isoformat(),
+                "summary": i["summary"][:400],
+                "key_points": key_points(i["summary"]),
+                "why_recommended": why_recommended(i["topics"]),
+                "importance": importance,
+                "topics": i["topics"],
+                "sections": i["sections"],
+            }
+        )
+
+    daily_brief = build_daily_brief(
+        [{**oi, "published": datetime.fromisoformat(oi["published"])} for oi in output_items],
+        section_of=None,
+    )
 
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "topics": topic_names,
+        "sections": section_names,
+        "daily_brief": daily_brief,
         "count": len(output_items),
         "items": output_items,
     }

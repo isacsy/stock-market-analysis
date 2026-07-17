@@ -1,12 +1,14 @@
 {
   "generated_at": null,
-  "topics": [
-    "Apple / AAPL",
-    "Stock Market",
-    "Business & Financial Analytics",
-    "Malaysia Finance",
-    "General Finance"
+  "sections": [
+    "Finance",
+    "Work",
+    "Technology",
+    "Education",
+    "Projects",
+    "Personal Interests"
   ],
+  "daily_brief": "No stories yet — the first scheduled scan hasn't run.",
   "count": 0,
   "items": []
 }
