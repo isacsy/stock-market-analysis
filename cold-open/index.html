@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cold Open — Impromptu Speech Practice</title>
+<meta name="description" content="Draw a random topic, take 15 minutes to prepare, then speak for 60 seconds with no notes.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='40' r='38' fill='%23171310'/%3E%3Ccircle cx='50' cy='40' r='20' fill='%23E8A93B'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="stage">
+  <div class="spot-glow" id="speak-glow" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="wordmark">COLD OPEN</div>
+    <button type="button" id="alert-toggle" class="alert-toggle" aria-pressed="false">
+      <span class="alert-dot" aria-hidden="true"></span>
+      <span id="alert-label">Enable alerts</span>
+    </button>
+  </header>
+
+  <main class="app">
+
+    <section id="screen-draw" class="screen screen-draw">
+      <p class="tagline">Step up. The room is yours for one minute.</p>
+      <p class="stat-line"><b id="topic-count">225</b> topics · <b>15 min</b> to prepare · <b>60 sec</b> to shine</p>
+      <button type="button" id="draw-btn" class="cta">Draw a Topic</button>
+    </section>
+
+    <section id="screen-prep" class="screen screen-prep" hidden>
+      <span class="badge" id="prep-category"></span>
+      <p class="topic" id="prep-topic"></p>
+      <div class="prep-row">
+        <div class="dial">
+          <span class="dial-num" id="prep-num">15:00</span>
+          <span class="dial-cap">Lights up in</span>
+        </div>
+        <div class="prep-copy">
+          <p>Think it through. Jot a line to open with — you won't get a second take.</p>
+          <textarea id="notes" class="notes" placeholder="Opening line…" rows="3"></textarea>
+        </div>
+      </div>
+      <p class="prep-status" id="prep-status"></p>
+      <div class="ready-row">
+        <button type="button" id="skip-btn" class="skip-btn">↺ Draw a different topic</button>
+        <button type="button" id="ready-btn" class="ready-btn">I'm Ready — Lights Up</button>
+      </div>
+    </section>
+
+    <section id="screen-speak" class="screen screen-speak" hidden>
+      <div class="spot-line" aria-hidden="true"></div>
+      <div class="dial">
+        <span class="dial-num" id="speak-num">1:00</span>
+        <span class="dial-cap">Remaining</span>
+      </div>
+      <p class="youre-up">You're up.</p>
+      <p class="topic-reminder" id="speak-topic"></p>
+    </section>
+
+    <section id="screen-done" class="screen screen-done" hidden>
+      <p class="done-title">Time.</p>
+      <p class="done-message" id="done-message"></p>
+      <button type="button" id="draw-another-btn" class="cta">Draw Another Topic</button>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <p>Alerts need this tab to stay open in your browser — closing it fully stops any web page, the same as closing a kitchen-timer app. Switching to another tab or app is fine: the clock stays accurate, and with alerts enabled it can still reach you.</p>
+  </footer>
+</div>
+
+<script src="topics.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
