@@ -8,7 +8,8 @@
 
   var PREP_MS = 15 * 60 * 1000;
   var SPEAK_MS = 60 * 1000;
-  var NOTES_KEY = "coldopen:notes";
+  var SESSION_KEY = "coldopen:session";
+  var SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
   // ---------------------------------------------------------------
   // Timer engine
@@ -41,11 +42,15 @@
       return remaining;
     }
 
-    function start() {
-      endAt = Date.now() + durationMs;
+    // `explicitEndAt` resumes a session restored from storage rather than
+    // starting a fresh full-duration run.
+    function start(explicitEndAt) {
+      endAt = explicitEndAt || (Date.now() + durationMs);
       done = false;
+      stop();
       computeAndReport();
-      intervalId = setInterval(computeAndReport, 250);
+      if (!done) intervalId = setInterval(computeAndReport, 250);
+      return endAt;
     }
 
     function stop() {
@@ -68,6 +73,41 @@
       activeCountdowns.forEach(function (c) { if (c.isRunning()) c.recompute(); });
     }
   });
+
+  // ---------------------------------------------------------------
+  // Session persistence.
+  //
+  // The countdown lives on a wall-clock end timestamp, so storing that
+  // timestamp is enough to rebuild an in-progress run exactly after an
+  // accidental refresh, a crash, or a phone killing the tab to reclaim
+  // memory. Storage failures (private mode, disabled cookies) are
+  // non-fatal — the app just loses restore, never its timing.
+  // ---------------------------------------------------------------
+  function saveSession(session) {
+    try {
+      session.savedAt = Date.now();
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } catch (e) { /* storage unavailable — restore is a bonus, not a requirement */ }
+  }
+  function loadSession() {
+    try {
+      var raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      var s = JSON.parse(raw);
+      if (!s || !s.topic || !s.topic.text || !s.phase || !s.endAt) return null;
+      if (Date.now() - (s.savedAt || 0) > SESSION_MAX_AGE_MS) return null;
+      return s;
+    } catch (e) { return null; }
+  }
+  function clearSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* nothing to clean up */ }
+  }
+  function patchSession(patch) {
+    var s = loadSession();
+    if (!s) return;
+    Object.keys(patch).forEach(function (k) { s[k] = patch[k]; });
+    saveSession(s);
+  }
 
   // ---------------------------------------------------------------
   // Alerts: sound (WebAudio, no asset files), vibration, browser
@@ -213,6 +253,13 @@
   var prepCountdown = null;
   var speakCountdown = null;
 
+  // Screen readers get the topic and the phase changes spoken; the dial
+  // itself is decorative and would be noise if announced every tick.
+  var liveRegion = document.getElementById("live-region");
+  function announce(message) {
+    if (liveRegion) liveRegion.textContent = message;
+  }
+
   function fmt(ms) {
     var total = Math.ceil(ms / 1000);
     var m = Math.floor(total / 60);
@@ -232,48 +279,62 @@
     }
   }
 
-  function startPrep(topic) {
+  var prepDial = els.prepNum.closest(".dial");
+  var speakDial = els.speakNum.closest(".dial");
+
+  function markPrepTimeUp() {
+    els.prepStatus.textContent = "Time's up — start whenever you're ready.";
+    els.prepStatus.classList.add("is-urgent");
+    if (prepDial) prepDial.classList.add("is-urgent");
+  }
+
+  // `resumeEndAt` / `restoredNotes` are only passed when rebuilding a
+  // session after a reload; a normal draw starts a clean 15:00.
+  function startPrep(topic, resumeEndAt, restoredNotes) {
+    lastTopic = topic;
     els.prepCategory.textContent = topic.category;
     els.prepTopic.textContent = topic.text;
     els.prepStatus.textContent = "";
     els.prepStatus.classList.remove("is-urgent");
-    els.notes.value = localStorage.getItem(NOTES_KEY) || "";
+    if (prepDial) prepDial.classList.remove("is-urgent");
+    // Notes belong to the topic they were written for — a new topic starts blank.
+    els.notes.value = restoredNotes || "";
     setState("prep");
 
     if (prepCountdown) { prepCountdown.stop(); activeCountdowns = activeCountdowns.filter(function (c) { return c !== prepCountdown; }); }
     prepCountdown = createCountdown(PREP_MS, function (remaining) {
       els.prepNum.textContent = fmt(remaining);
-      var dial = els.prepNum.closest(".dial");
-      if (dial) dial.style.setProperty("--p", (remaining / PREP_MS) * 360 + "deg");
+      if (prepDial) prepDial.style.setProperty("--p", (remaining / PREP_MS) * 360 + "deg");
     }, function () {
-      els.prepStatus.textContent = "Time's up — start whenever you're ready.";
-      els.prepStatus.classList.add("is-urgent");
-      var prepDial = els.prepNum.closest(".dial");
-      if (prepDial) prepDial.classList.add("is-urgent");
+      markPrepTimeUp();
       playChime("prepDone");
       vibrate([120, 60, 120]);
       sendNotification("Cold Open", "Prep time's up. Start speaking whenever you're ready.");
       flashTitle("⏰ Prep time's up!");
+      announce("Prep time is up. Start whenever you're ready.");
     });
     activeCountdowns.push(prepCountdown);
-    prepCountdown.start();
+    var endAt = prepCountdown.start(resumeEndAt);
+
+    saveSession({ topic: topic, phase: "prep", endAt: endAt, notes: els.notes.value });
+    announce(topic.category + ". " + topic.text + ". Fifteen minutes to prepare.");
   }
 
-  function startSpeaking() {
+  function startSpeaking(resumeEndAt) {
     if (prepCountdown) prepCountdown.stop();
     var topic = lastTopic;
     els.speakTopic.textContent = topic.text;
     setState("speak");
     els.speakGlow.classList.add("is-tight");
     els.speakNum.classList.remove("is-urgent");
+    if (speakDial) speakDial.classList.remove("is-urgent");
 
     if (speakCountdown) { speakCountdown.stop(); activeCountdowns = activeCountdowns.filter(function (c) { return c !== speakCountdown; }); }
     speakCountdown = createCountdown(SPEAK_MS, function (remaining) {
       els.speakNum.textContent = fmt(remaining);
-      var dial = els.speakNum.closest(".dial");
-      if (dial) {
-        dial.style.setProperty("--p", (remaining / SPEAK_MS) * 360 + "deg");
-        if (remaining <= 10000) dial.classList.add("is-urgent");
+      if (speakDial) {
+        speakDial.style.setProperty("--p", (remaining / SPEAK_MS) * 360 + "deg");
+        if (remaining <= 10000) speakDial.classList.add("is-urgent");
       }
       if (remaining <= 10000) els.speakNum.classList.add("is-urgent");
     }, function () {
@@ -281,17 +342,28 @@
       vibrate([160, 80, 160, 80, 260]);
       sendNotification("Cold Open", "Time's up!");
       flashTitle("⏰ Time's up!");
-      els.doneMessage.textContent = "Time's up on “" + topic.text + "”.";
-      setState("done");
+      showDone(topic);
     });
     activeCountdowns.push(speakCountdown);
-    speakCountdown.start();
+    var endAt = speakCountdown.start(resumeEndAt);
+
+    saveSession({ topic: topic, phase: "speak", endAt: endAt });
+    announce("You're up. One minute starting now.");
+  }
+
+  function showDone(topic) {
+    els.doneMessage.textContent = "Time's up on “" + topic.text + "”.";
+    els.speakGlow.classList.remove("is-tight");
+    clearSession();
+    setState("done");
+    announce("Time's up.");
   }
 
   function resetToDraw() {
     if (prepCountdown) prepCountdown.stop();
     if (speakCountdown) speakCountdown.stop();
     els.speakGlow.classList.remove("is-tight");
+    clearSession();
     setState("draw");
   }
 
@@ -313,7 +385,7 @@
   });
 
   els.notes.addEventListener("input", function () {
-    localStorage.setItem(NOTES_KEY, els.notes.value);
+    patchSession({ notes: els.notes.value });
   });
 
   els.alertToggle.addEventListener("click", function () {
@@ -338,5 +410,31 @@
   var topicCountEl = document.getElementById("topic-count");
   if (topicCountEl) topicCountEl.textContent = COLD_OPEN_TOPICS.length;
 
-  setState("draw");
+  // ---------------------------------------------------------------
+  // Boot: rebuild an interrupted run if one was in flight, otherwise
+  // start at the draw screen.
+  // ---------------------------------------------------------------
+  (function boot() {
+    var saved = loadSession();
+    if (!saved) { setState("draw"); return; }
+
+    var expired = saved.endAt <= Date.now();
+
+    if (saved.phase === "prep") {
+      startPrep(saved.topic, saved.endAt, saved.notes);
+      if (expired) markPrepTimeUp();
+      return;
+    }
+
+    if (saved.phase === "speak") {
+      lastTopic = saved.topic;
+      // A minute that ran out while the tab was gone is simply over —
+      // resuming it would hand back time the speaker never had.
+      if (expired) { showDone(saved.topic); return; }
+      startSpeaking(saved.endAt);
+      return;
+    }
+
+    setState("draw");
+  })();
 })();
