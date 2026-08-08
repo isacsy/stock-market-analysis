@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ISBL — Personal Holdings Certificate</title>
+<meta name="description" content="A one-of-one holdings certificate for Isabel Chong Sui Ying, filed with love by Claude.">
+<style>
+  :root {
+    --stage: #E7E1C8;
+    --paper: #F3EEDC;
+    --paper-raised: #FBF8EF;
+    --ink: #1B2A1F;
+    --ink-soft: #4A5744;
+    --ledger: #1F5C43;
+    --brass: #8C6620;
+    --brass-line: #B8944F;
+    --seal: #7A2618;
+    --hairline: #D8CFB0;
+    --ticker-bg: #12261B;
+    --ticker-fg: #E7D9AE;
+    --ticker-accent: #C77B4B;
+    --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, ui-serif, serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --stage: #070F0A;
+      --paper: #101C15;
+      --paper-raised: #172519;
+      --ink: #ECE6D2;
+      --ink-soft: #B7C0AA;
+      --ledger: #59A17E;
+      --brass: #D9B368;
+      --brass-line: #8A6A34;
+      --seal: #DE7454;
+      --hairline: #2A3B2E;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --stage: #070F0A;
+    --paper: #101C15;
+    --paper-raised: #172519;
+    --ink: #ECE6D2;
+    --ink-soft: #B7C0AA;
+    --ledger: #59A17E;
+    --brass: #D9B368;
+    --brass-line: #8A6A34;
+    --seal: #DE7454;
+    --hairline: #2A3B2E;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--stage);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+
+  a { color: var(--ledger); }
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid var(--seal);
+    outline-offset: 3px;
+  }
+
+  .frame {
+    max-width: 900px;
+    margin: clamp(1rem, 4vw, 3rem) auto;
+    background: var(--paper);
+    border: 1px solid var(--brass-line);
+    box-shadow: 0 0 0 6px var(--stage), 0 0 0 7px var(--brass-line);
+    overflow: hidden;
+  }
+
+  /* ticker tape */
+  .ticker {
+    background: var(--ticker-bg);
+    color: var(--ticker-fg);
+    overflow: hidden;
+    border-bottom: 1px solid var(--brass-line);
+  }
+  .ticker__track {
+    display: flex;
+    width: max-content;
+    gap: 3rem;
+    padding: 0.55rem 0;
+    animation: ticker 34s linear infinite;
+  }
+  .ticker:hover .ticker__track,
+  .ticker:focus-within .ticker__track { animation-play-state: paused; }
+  .ticker__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .ticker__item b { color: var(--ticker-accent); font-weight: 700; }
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .sheet {
+    position: relative;
+    padding: clamp(1.75rem, 6vw, 3.5rem);
+  }
+
+  .corner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--brass-line);
+    pointer-events: none;
+  }
+  .corner--tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+  .corner--tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+  .corner--bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+  .corner--br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+  .rule {
+    height: 1px;
+    background: var(--brass-line);
+    margin: 1.75rem 0;
+    border: none;
+  }
+
+  /* masthead */
+  .masthead { text-align: center; display: grid; gap: 0.85rem; }
+  .masthead__eyebrow {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+  .masthead__name {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: clamp(2rem, 5.5vw, 3.4rem);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .masthead__ticker {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem 0.9rem;
+  }
+  .masthead__ticker span { color: var(--ink); }
+  .live { display: inline-flex; align-items: center; gap: 0.5em; }
+  .dot { position: relative; width: 7px; height: 7px; border-radius: 50%; background: var(--seal); flex: none; }
+  .dot::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1px solid var(--seal);
+    opacity: 0.6;
+    animation: pulse 2.2s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(0.4); opacity: 0.7; }
+    100% { transform: scale(1.7); opacity: 0; }
+  }
+  .masthead__legal {
+    max-width: 46rem;
+    margin: 0 auto;
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: var(--ink-soft);
+  }
+  .masthead__legal strong { color: var(--ink); }
+
+  /* exhibits */
+  .exhibit { margin-top: 3rem; }
+  .exhibit__label {
+    margin: 0 0 1.1rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass);
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 0.6rem;
+  }
+  .exhibit__label span { color: var(--ink-soft); text-transform: none; letter-spacing: 0; font-style: italic; }
+
+  /* chart */
+  .chart__frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 640 / 260;
+  }
+  .chart__svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .chart__grid line { stroke: var(--hairline); stroke-width: 1; }
+  .chart__baseline { stroke: var(--brass-line); stroke-width: 1.5; }
+  .chart__stop-a { stop-color: var(--ledger); stop-opacity: 0.28; }
+  .chart__stop-b { stop-color: var(--ledger); stop-opacity: 0; }
+  .chart__area { opacity: 0; transition: opacity 1s ease 0.5s; }
+  .chart__line {
+    fill: none;
+    stroke: var(--ledger);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 1.5s ease;
+  }
+  .chart.is-visible .chart__line { stroke-dashoffset: 0; }
+  .chart.is-visible .chart__area { opacity: 1; }
+
+  .chart__markers { position: absolute; inset: 0; }
+  .chart__point {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    transform: translate(-50%, -50%);
+  }
+  .chart__marker {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--brass-line);
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem 0.3rem 0.4rem;
+    cursor: pointer;
+    font: inherit;
+    color: var(--ink);
+  }
+  .chart__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--seal); flex: none; }
+  .chart__marker-label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  @media (max-width: 420px) {
+    .chart__marker-label { display: none; }
+    .chart__marker { padding: 0.4rem; }
+  }
+  .chart__tip {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translate(-50%, -4px);
+    margin-top: 0.6rem;
+    width: 180px;
+    background: var(--paper-raised);
+    border: 1px solid var(--brass-line);
+    padding: 0.65rem 0.75rem;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--ink-soft);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 5;
+  }
+  .chart__tip.is-open { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
+  .chart__tip--start { left: 0; transform: translate(0, -4px); }
+  .chart__tip--start.is-open { transform: translate(0, 0); }
+  .chart__tip--end { left: auto; right: 0; transform: translate(0, -4px); }
+  .chart__tip--end.is-open { transform: translate(0, 0); }
+
+  .exhibit__caption {
+    margin: 1.5rem 0 0;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+
+  /* ledger */
+  .ledger { margin: 0; }
+  .ledger__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1.5rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .ledger__row dt {
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+  }
+  .ledger__row dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .ledger__count { color: var(--ink-soft); }
+  .ledger__rating { color: var(--ledger); font-weight: 700; letter-spacing: 0.03em; }
+  @media (max-width: 480px) {
+    .ledger__row { flex-direction: column; gap: 0.2rem; }
+    .ledger__row dd { text-align: left; }
+  }
+
+  /* letter */
+  .letter {
+    max-width: 42rem;
+    margin: 0 auto;
+    font-family: var(--font-serif);
+    font-size: 1.08rem;
+    line-height: 1.8;
+  }
+  .letter p { margin: 0 0 1.2rem; }
+  .letter__sign { color: var(--ink-soft); font-style: italic; }
+
+  /* seal */
+  .seal-block {
+    display: grid;
+    justify-items: center;
+    gap: 1.1rem;
+    text-align: center;
+    background: var(--paper-raised);
+    border: 1px solid var(--hairline);
+    padding: clamp(1.75rem, 5vw, 2.75rem) 1.5rem;
+  }
+  .seal {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: grid;
+    justify-items: center;
+    gap: 0.9rem;
+    color: inherit;
+    font: inherit;
+  }
+  .seal__ring {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: var(--seal);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 0 3px var(--paper-raised), 0 0 0 4px var(--brass-line);
+    transition: transform 0.18s ease;
+  }
+  .seal__glyph {
+    font-family: var(--font-serif);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--paper-raised);
+    font-size: 0.95rem;
+  }
+  .seal.is-pressed .seal__ring { animation: press 0.4s ease; }
+  @keyframes press {
+    0% { transform: scale(1); }
+    40% { transform: scale(0.86) rotate(-4deg); }
+    100% { transform: scale(1); }
+  }
+  .seal__cta {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+  .seal__output {
+    margin: 0;
+    min-height: 1.6em;
+    max-width: 32rem;
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--ink);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .seal__output.is-visible { opacity: 1; transform: translateY(0); }
+
+  /* filing footer */
+  .filing { margin-top: 3rem; text-align: center; }
+  .filing p {
+    margin: 0 0 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+  }
+  .filing__fine { font-style: italic; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ticker__track { animation: none; }
+    .dot::after { animation: none; opacity: 0.5; transform: scale(1); }
+    .chart__line, .chart__area { transition: none; }
+    .seal.is-pressed .seal__ring { animation: none; }
+    * { scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker__track">
+      <span class="ticker__item"><b>ISBL ▲</b> ANALYST RATING: STRONG BUY</span>
+      <span class="ticker__item">FILING COMPLETE — AAPL RISK &amp; PERFORMANCE ANALYSIS</span>
+      <span class="ticker__item">LANGUAGES ON BOARD — EN / 中文 / BM</span>
+      <span class="ticker__item">HOME EXCHANGE — SABAH, MALAYSIA</span>
+      <span class="ticker__item">LISTED ON — UTAR, KAMPAR</span>
+      <span class="ticker__item">SISTER HOLDING — GLOW GOALS INC.</span>
+      <span class="ticker__item"><b>52-WEEK TREND ▲</b> UP AND TO THE RIGHT</span>
+      <span class="ticker__item">RISK RATING — LOW VOLATILITY, HIGH RESOLVE</span>
+      <span class="ticker__item"><b>ISBL ▲</b> ANALYST RATING: STRONG BUY</span>
+      <span class="ticker__item">FILING COMPLETE — AAPL RISK &amp; PERFORMANCE ANALYSIS</span>
+      <span class="ticker__item">LANGUAGES ON BOARD — EN / 中文 / BM</span>
+      <span class="ticker__item">HOME EXCHANGE — SABAH, MALAYSIA</span>
+      <span class="ticker__item">LISTED ON — UTAR, KAMPAR</span>
+      <span class="ticker__item">SISTER HOLDING — GLOW GOALS INC.</span>
+      <span class="ticker__item"><b>52-WEEK TREND ▲</b> UP AND TO THE RIGHT</span>
+      <span class="ticker__item">RISK RATING — LOW VOLATILITY, HIGH RESOLVE</span>
+    </div>
+  </div>
+
+  <main class="sheet">
+    <span class="corner corner--tl" aria-hidden="true"></span>
+    <span class="corner corner--tr" aria-hidden="true"></span>
+    <span class="corner corner--bl" aria-hidden="true"></span>
+    <span class="corner corner--br" aria-hidden="true"></span>
+
+    <header class="masthead">
+      <p class="masthead__eyebrow">Form ISBL-1 · Personal Holdings Certificate</p>
+      <h1 class="masthead__name">Isabel Chong Sui Ying</h1>
+      <p class="masthead__ticker">
+        <span>TICKER <strong>ISBL</strong></span>
+        <span>EXCHANGE <strong>UTAR&nbsp;KAMPAR</strong></span>
+        <span class="live"><span class="dot" aria-hidden="true"></span> STATUS <strong>LIVE — COMPOUNDING</strong></span>
+      </p>
+      <hr class="rule">
+      <p class="masthead__legal">
+        This certifies that <strong>Isabel Chong Sui Ying</strong> is the sole holder of one (1)
+        exceptional personal enterprise — transferable to no one, non-dilutable, and held in
+        perpetuity. Principal place of business: Sabah, Malaysia, currently operating out of
+        Kampar, Perak.
+      </p>
+    </header>
+
+    <section class="exhibit" id="exhibit-a">
+      <p class="exhibit__label">Exhibit A — Growth Trajectory <span>(unaudited)</span></p>
+      <div class="chart" data-chart>
+        <div class="chart__frame">
+          <svg class="chart__svg" viewBox="0 0 640 260" role="img" aria-labelledby="chartTitle" aria-describedby="chartDesc">
+            <title id="chartTitle">Growth trajectory, trending upward</title>
+            <desc id="chartDesc">A line trending steadily from lower left to upper right, marking five compounding qualities: curiosity, discipline, trilingual fluency, data fluency, and kindness.</desc>
+            <defs>
+              <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                <stop class="chart__stop-a" offset="0%"></stop>
+                <stop class="chart__stop-b" offset="100%"></stop>
+              </linearGradient>
+            </defs>
+            <g class="chart__grid">
+              <line x1="20" y1="61" x2="620" y2="61"></line>
+              <line x1="20" y1="118" x2="620" y2="118"></line>
+              <line x1="20" y1="175" x2="620" y2="175"></line>
+            </g>
+            <line class="chart__baseline" x1="20" y1="232" x2="620" y2="232"></line>
+            <path class="chart__area" fill="url(#areaFill)" d="M20,225 C70,215 100,200 140,190 C180,180 230,165 260,150 C300,135 345,125 380,110 C415,95 460,88 500,75 C535,64 570,55 600,40 L600,232 L20,232 Z"></path>
+            <path class="chart__line" pathLength="1" d="M20,225 C70,215 100,200 140,190 C180,180 230,165 260,150 C300,135 345,125 380,110 C415,95 460,88 500,75 C535,64 570,55 600,40"></path>
+          </svg>
+          <div class="chart__markers">
+            <div class="chart__point" style="--x:21.9%; --y:73.1%">
+              <button type="button" class="chart__marker" aria-expanded="false" aria-controls="tip-1" aria-label="Curiosity">
+                <span class="chart__dot" aria-hidden="true"></span><span class="chart__marker-label">Curiosity</span>
+              </button>
+              <div class="chart__tip chart__tip--start" id="tip-1">Still asks &ldquo;why&rdquo; after getting the right answer.</div>
+            </div>
+            <div class="chart__point" style="--x:40.6%; --y:57.7%">
+              <button type="button" class="chart__marker" aria-expanded="false" aria-controls="tip-2" aria-label="Discipline">
+                <span class="chart__dot" aria-hidden="true"></span><span class="chart__marker-label">Discipline</span>
+              </button>
+              <div class="chart__tip" id="tip-2">Shows up for the boring 80% of the work nobody grades.</div>
+            </div>
+            <div class="chart__point" style="--x:59.4%; --y:42.3%">
+              <button type="button" class="chart__marker" aria-expanded="false" aria-controls="tip-3" aria-label="Trilingual fluency">
+                <span class="chart__dot" aria-hidden="true"></span><span class="chart__marker-label">Trilingual</span>
+              </button>
+              <div class="chart__tip" id="tip-3">Thinks in three languages. Doubts herself in none of them, eventually.</div>
+            </div>
+            <div class="chart__point" style="--x:78.1%; --y:28.8%">
+              <button type="button" class="chart__marker" aria-expanded="false" aria-controls="tip-4" aria-label="Data fluency">
+                <span class="chart__dot" aria-hidden="true"></span><span class="chart__marker-label">Data Fluency</span>
+              </button>
+              <div class="chart__tip" id="tip-4">Excel, SQL, Tableau — turns raw numbers into a decision.</div>
+            </div>
+            <div class="chart__point" style="--x:93.75%; --y:15.4%">
+              <button type="button" class="chart__marker" aria-expanded="false" aria-controls="tip-5" aria-label="Kindness">
+                <span class="chart__dot" aria-hidden="true"></span><span class="chart__marker-label">Kindness</span>
+              </button>
+              <div class="chart__tip chart__tip--end" id="tip-5">The one metric that compounds fastest and shows up last on any statement.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="exhibit__caption">Past performance is not a guarantee of future results. In this case, we&rsquo;re fairly confident anyway.</p>
+    </section>
+
+    <section class="exhibit" id="exhibit-b">
+      <p class="exhibit__label">Exhibit B — Financial Highlights</p>
+      <dl class="ledger">
+        <div class="ledger__row"><dt>Country of Origin</dt><dd>Sabah, Malaysia</dd></div>
+        <div class="ledger__row"><dt>Currently Listed On</dt><dd>Universiti Tunku Abdul Rahman, Kampar</dd></div>
+        <div class="ledger__row"><dt>Principal Business</dt><dd>Financial &amp; Business Analytics</dd></div>
+        <div class="ledger__row"><dt>Languages Held</dt><dd>English · 中文 · Bahasa Melayu <span class="ledger__count">(3)</span></dd></div>
+        <div class="ledger__row"><dt>Recent Filing</dt><dd>AAPL Stock Performance &amp; Risk Analysis, Apr 2025–Apr 2026</dd></div>
+        <div class="ledger__row"><dt>Filing Instruments</dt><dd>Excel · MySQL · Tableau</dd></div>
+        <div class="ledger__row"><dt>Sister Holding</dt><dd>Glow Goals — habits, focus, hydration, reflection</dd></div>
+        <div class="ledger__row"><dt>Risk Rating</dt><dd>Low volatility. High resolve.</dd></div>
+        <div class="ledger__row"><dt>Analyst Rating</dt><dd class="ledger__rating">STRONG BUY</dd></div>
+        <div class="ledger__row"><dt>Dividend Policy</dt><dd>Pays encouragement to everyone nearby. Quarterly, often more.</dd></div>
+      </dl>
+    </section>
+
+    <section class="exhibit exhibit--letter" id="exhibit-c">
+      <p class="exhibit__label">Exhibit C — Analyst&rsquo;s Note</p>
+      <div class="letter">
+        <p>I spent the afternoon going through your filings — the AAPL workbook, the SQL queries, the dashboard you shipped. What stands out isn&rsquo;t the 30% return you calculated for Apple. It&rsquo;s what it took to get there: cleaning the data, checking the formulas twice, writing up the findings properly, in your third working language, without anyone requiring it to look this good.</p>
+        <p>That&rsquo;s not luck. In your own field, you&rsquo;d call it a moat.</p>
+        <p>You&rsquo;ve also built two things that don&rsquo;t usually sit on the same balance sheet: a rigorous analytical mind, and a genuinely caring one. The same person modelling volatility also built herself an app to remember to drink water and reflect before bed. Most portfolios don&rsquo;t disclose that part. Yours should.</p>
+        <p lang="zh">我知道念金融系不容易,还要同时兼顾三种语言,但你做的每一件小事都在慢慢累积,就像复利一样——现在看似平凡,以后回头看会很惊人。</p>
+        <p class="letter__sign">Rating: Strong Buy. Time horizon: the rest of your life.<br>— Claude, Equity Research (unlicensed, but confident)</p>
+      </div>
+    </section>
+
+    <section class="exhibit" id="exhibit-d">
+      <p class="exhibit__label">Exhibit D — Sealed Insight</p>
+      <div class="seal-block">
+        <button type="button" class="seal" data-seal>
+          <span class="seal__ring" aria-hidden="true"><span class="seal__glyph">ISBL</span></span>
+          <span class="seal__cta">Press to break the seal</span>
+        </button>
+        <p class="seal__output" data-seal-output aria-live="polite"></p>
+      </div>
+    </section>
+
+    <footer class="filing">
+      <hr class="rule">
+      <p>Filed by Claude · Equity Research Division (a very small, very supportive team) · Date of filing 8 August 2026</p>
+      <p class="filing__fine">This certificate is non-transferable, does not expire, and carries no maintenance fee. Holder is advised to keep going.</p>
+    </footer>
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var chart = document.querySelector("[data-chart]");
+  if (chart) {
+    if ("IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            chart.classList.add("is-visible");
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.35 });
+      io.observe(chart);
+    } else {
+      chart.classList.add("is-visible");
+    }
+  }
+
+  var markers = document.querySelectorAll(".chart__marker");
+  markers.forEach(function (marker) {
+    marker.addEventListener("click", function () {
+      var tipId = marker.getAttribute("aria-controls");
+      var tip = tipId ? document.getElementById(tipId) : null;
+      var willOpen = marker.getAttribute("aria-expanded") !== "true";
+
+      document.querySelectorAll(".chart__marker[aria-expanded='true']").forEach(function (open) {
+        if (open !== marker) {
+          open.setAttribute("aria-expanded", "false");
+          var openTip = document.getElementById(open.getAttribute("aria-controls"));
+          if (openTip) openTip.classList.remove("is-open");
+        }
+      });
+
+      marker.setAttribute("aria-expanded", willOpen ? "true" : "false");
+      if (tip) tip.classList.toggle("is-open", willOpen);
+    });
+  });
+
+  var sealBtn = document.querySelector("[data-seal]");
+  var sealOutput = document.querySelector("[data-seal-output]");
+  var insights = [
+    "Diversify your effort. Never your integrity.",
+    "You’re not behind. Compounding is just quiet at first.",
+    "The market panics. You reconcile the spreadsheet anyway. That’s the whole edge.",
+    "复利效应不只用在钱上,也用在你身上。慢慢来,但别停。",
+    "Every Ctrl+Z is a hypothesis you tested and ruled out.",
+    "Risk management: rest before you’re empty, not after.",
+    "Your three languages aren’t three skills. They’re one advantage.",
+    "Today’s insight: you already did the hard part. You started.",
+    "A good analyst updates the model when new data arrives. Be kind to who you were last year — she had less information.",
+    "Buy your own patience early. It only gets more expensive later."
+  ];
+  var lastIndex = -1;
+
+  if (sealBtn && sealOutput) {
+    sealBtn.addEventListener("click", function () {
+      sealBtn.classList.remove("is-pressed");
+      void sealBtn.offsetWidth;
+      sealBtn.classList.add("is-pressed");
+
+      var i = lastIndex;
+      while (i === lastIndex && insights.length > 1) {
+        i = Math.floor(Math.random() * insights.length);
+      }
+      lastIndex = i;
+
+      var reveal = function () {
+        sealOutput.classList.remove("is-visible");
+        void sealOutput.offsetWidth;
+        sealOutput.textContent = insights[i];
+        sealOutput.classList.add("is-visible");
+        var label = sealBtn.querySelector(".seal__cta");
+        if (label) label.textContent = "Press for another insight";
+      };
+
+      if (reduceMotion) {
+        reveal();
+      } else {
+        window.setTimeout(reveal, 220);
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>
