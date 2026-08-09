@@ -190,6 +190,13 @@ body{
 .done-title{ font-family:var(--font-d); font-size:clamp(2.4rem,1.9rem + 2vw,3.2rem); letter-spacing:.03em; color:var(--accent); margin-bottom:.8rem; }
 .done-message{ font-size:.95rem; color:var(--ink-soft); max-width:24rem; text-wrap:balance; margin-bottom:.5rem; }
 
+/* ---------- reveal (topic shown, clock not yet running) ---------- */
+.reveal-hint{
+  font-size:.88rem; color:var(--ink-soft); line-height:1.6;
+  max-width:24rem; text-wrap:balance;
+}
+.screen-reveal .cta{ margin-bottom:1.1rem; }
+
 /* ---------- recording indicator (speaking screen) ---------- */
 .rec-indicator{
   display:flex; align-items:center; gap:.45rem; margin-top:1.2rem;

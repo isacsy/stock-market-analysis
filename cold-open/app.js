@@ -94,7 +94,10 @@
       var raw = localStorage.getItem(SESSION_KEY);
       if (!raw) return null;
       var s = JSON.parse(raw);
-      if (!s || !s.topic || !s.topic.text || !s.phase || !s.endAt) return null;
+      if (!s || !s.topic || !s.topic.text || !s.phase) return null;
+      // A revealed-but-not-started topic has no clock to restore; the
+      // timed phases are meaningless without one.
+      if (s.phase !== "reveal" && !s.endAt) return null;
       if (Date.now() - (s.savedAt || 0) > SESSION_MAX_AGE_MS) return null;
       return s;
     } catch (e) { return null; }
@@ -228,6 +231,7 @@
   var els = {
     screens: {
       draw: document.getElementById("screen-draw"),
+      reveal: document.getElementById("screen-reveal"),
       prep: document.getElementById("screen-prep"),
       speak: document.getElementById("screen-speak"),
       done: document.getElementById("screen-done")
@@ -236,6 +240,10 @@
     drawAnotherBtn: document.getElementById("draw-another-btn"),
     readyBtn: document.getElementById("ready-btn"),
     skipBtn: document.getElementById("skip-btn"),
+    revealCategory: document.getElementById("reveal-category"),
+    revealTopic: document.getElementById("reveal-topic"),
+    beginBtn: document.getElementById("begin-btn"),
+    revealSkipBtn: document.getElementById("reveal-skip-btn"),
     prepCategory: document.getElementById("prep-category"),
     prepTopic: document.getElementById("prep-topic"),
     prepNum: document.getElementById("prep-num"),
@@ -310,8 +318,22 @@
     if (prepDial) prepDial.classList.add("is-urgent");
   }
 
+  // Reading the topic shouldn't cost prep time, so a draw only reveals it.
+  // The 15 minutes begin on an explicit press.
+  function revealTopic(topic) {
+    lastTopic = topic;
+    clearReview();
+    if (prepCountdown) prepCountdown.stop();
+    if (speakCountdown) speakCountdown.stop();
+    els.revealCategory.textContent = topic.category;
+    els.revealTopic.textContent = topic.text;
+    setState("reveal");
+    saveSession({ topic: topic, phase: "reveal" });
+    announce(topic.category + ". " + topic.text + ". Start the clock when you're ready.");
+  }
+
   // `resumeEndAt` / `restoredNotes` are only passed when rebuilding a
-  // session after a reload; a normal draw starts a clean 15:00.
+  // session after a reload; a normal start gives a clean 15:00.
   function startPrep(topic, resumeEndAt, restoredNotes) {
     lastTopic = topic;
     clearReview();
@@ -340,7 +362,7 @@
     var endAt = prepCountdown.start(resumeEndAt);
 
     saveSession({ topic: topic, phase: "prep", endAt: endAt, notes: els.notes.value });
-    announce(topic.category + ". " + topic.text + ". Fifteen minutes to prepare.");
+    if (!resumeEndAt) announce("Fifteen minutes, starting now.");
   }
 
   function startSpeaking(resumeEndAt) {
@@ -490,11 +512,19 @@
 
   els.drawBtn.addEventListener("click", function () {
     unlockAudio();
-    startPrep(drawTopic());
+    revealTopic(drawTopic());
   });
   els.drawAnotherBtn.addEventListener("click", function () {
     unlockAudio();
-    startPrep(drawTopic());
+    revealTopic(drawTopic());
+  });
+  els.beginBtn.addEventListener("click", function () {
+    unlockAudio();
+    startPrep(lastTopic);
+  });
+  els.revealSkipBtn.addEventListener("click", function () {
+    unlockAudio();
+    revealTopic(drawTopic());
   });
   els.readyBtn.addEventListener("click", function () {
     unlockAudio();
@@ -526,7 +556,7 @@
   });
   els.skipBtn.addEventListener("click", function () {
     unlockAudio();
-    startPrep(drawTopic());
+    revealTopic(drawTopic());
   });
 
   els.notes.addEventListener("input", function () {
@@ -595,6 +625,8 @@
   (function boot() {
     var saved = loadSession();
     if (!saved) { setState("draw"); return; }
+
+    if (saved.phase === "reveal") { revealTopic(saved.topic); return; }
 
     var expired = saved.endAt <= Date.now();
 

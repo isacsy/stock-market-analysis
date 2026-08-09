@@ -6,6 +6,16 @@ seconds with no notes and no second take.
 
 No warm-up. Just talk.
 
+## The flow
+
+1. **Draw** — a topic is revealed with no clock running.
+2. **Read it** — take as long as you like. Reading the question shouldn't
+   cost prep time, so the 15 minutes only begin on an explicit press.
+3. **Prepare** — 15 minutes, with a notes field for an opening line.
+   Start speaking early if you're ready; the clock won't wait for you.
+4. **Speak** — 60 seconds, recorded and scored.
+5. **Review** — playback, a delivery score, and a report to hand to an AI.
+
 ## Run it
 
 No build step — it's plain HTML/CSS/JS.
