@@ -15,10 +15,16 @@
 
   <header class="topbar">
     <div class="wordmark">COLD OPEN</div>
-    <button type="button" id="alert-toggle" class="alert-toggle" aria-pressed="false">
-      <span class="alert-dot" aria-hidden="true"></span>
-      <span id="alert-label">Enable alerts</span>
-    </button>
+    <div class="topbar-controls">
+      <button type="button" id="record-toggle" class="alert-toggle" aria-pressed="true">
+        <span class="alert-dot" aria-hidden="true"></span>
+        <span id="record-label">Record &amp; score</span>
+      </button>
+      <button type="button" id="alert-toggle" class="alert-toggle" aria-pressed="false">
+        <span class="alert-dot" aria-hidden="true"></span>
+        <span id="alert-label">Enable alerts</span>
+      </button>
+    </div>
   </header>
 
   <p id="live-region" class="visually-hidden" role="status" aria-live="polite"></p>
@@ -59,11 +65,42 @@
       </div>
       <p class="youre-up">You're up.</p>
       <p class="topic-reminder" id="speak-topic"></p>
+      <p class="rec-indicator" id="rec-indicator" hidden><span class="rec-dot" aria-hidden="true"></span>Recording</p>
     </section>
 
     <section id="screen-done" class="screen screen-done" hidden>
       <p class="done-title">Time.</p>
       <p class="done-message" id="done-message"></p>
+
+      <div id="review" class="review" hidden>
+        <div class="score-block">
+          <div class="score-num"><span id="score-value">—</span><small>/100</small></div>
+          <p class="score-caption">Delivery only — the AI report below judges what you actually said.</p>
+        </div>
+
+        <audio id="playback" class="playback" controls hidden></audio>
+
+        <ul class="metrics" id="metrics"></ul>
+
+        <details class="breakdown" id="breakdown">
+          <summary>How this score broke down</summary>
+          <ul id="deductions"></ul>
+        </details>
+
+        <div class="transcript-block">
+          <label for="transcript" class="transcript-label">Transcript <span id="transcript-hint"></span></label>
+          <textarea id="transcript" class="notes" rows="5" placeholder="Type or paste what you said…"></textarea>
+        </div>
+
+        <div class="export-block">
+          <button type="button" id="export-btn" class="ready-btn">↓ Download report for AI</button>
+          <button type="button" id="export-audio-btn" class="skip-btn" hidden>↓ Save the audio too</button>
+          <p class="export-hint">The file already contains the coaching prompt — just send it to Claude, ChatGPT, or Gemini with no message of your own.</p>
+        </div>
+      </div>
+
+      <p id="record-note" class="record-note" hidden></p>
+
       <button type="button" id="draw-another-btn" class="cta">Draw Another Topic</button>
     </section>
 
@@ -75,6 +112,8 @@
 </div>
 
 <script src="topics.js"></script>
+<script src="recorder.js"></script>
+<script src="report.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

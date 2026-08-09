@@ -246,7 +246,21 @@
     speakGlow: document.getElementById("speak-glow"),
     doneMessage: document.getElementById("done-message"),
     alertToggle: document.getElementById("alert-toggle"),
-    alertLabel: document.getElementById("alert-label")
+    alertLabel: document.getElementById("alert-label"),
+    recordToggle: document.getElementById("record-toggle"),
+    recordLabel: document.getElementById("record-label"),
+    recIndicator: document.getElementById("rec-indicator"),
+    review: document.getElementById("review"),
+    scoreValue: document.getElementById("score-value"),
+    playback: document.getElementById("playback"),
+    metrics: document.getElementById("metrics"),
+    breakdown: document.getElementById("breakdown"),
+    deductions: document.getElementById("deductions"),
+    transcript: document.getElementById("transcript"),
+    transcriptHint: document.getElementById("transcript-hint"),
+    exportBtn: document.getElementById("export-btn"),
+    exportAudioBtn: document.getElementById("export-audio-btn"),
+    recordNote: document.getElementById("record-note")
   };
 
   var currentState = "draw";
@@ -259,6 +273,14 @@
   function announce(message) {
     if (liveRegion) liveRegion.textContent = message;
   }
+
+  var recordEnabled = true;
+  var activeRecorder = null;
+  var lastCapture = null;
+  var lastAnalysis = null;
+  var lastNotes = "";
+  var playbackUrl = null;
+  var recordNoteText = "";
 
   function fmt(ms) {
     var total = Math.ceil(ms / 1000);
@@ -292,6 +314,7 @@
   // session after a reload; a normal draw starts a clean 15:00.
   function startPrep(topic, resumeEndAt, restoredNotes) {
     lastTopic = topic;
+    clearReview();
     els.prepCategory.textContent = topic.category;
     els.prepTopic.textContent = topic.text;
     els.prepStatus.textContent = "";
@@ -351,12 +374,110 @@
     announce("You're up. One minute starting now.");
   }
 
+  function clearReview() {
+    els.review.hidden = true;
+    els.recordNote.hidden = true;
+    els.playback.hidden = true;
+    els.exportAudioBtn.hidden = true;
+    if (playbackUrl) { URL.revokeObjectURL(playbackUrl); playbackUrl = null; }
+    els.playback.removeAttribute("src");
+    lastCapture = null;
+    lastAnalysis = null;
+  }
+
   function showDone(topic) {
     els.doneMessage.textContent = "Time's up on “" + topic.text + "”.";
     els.speakGlow.classList.remove("is-tight");
+    els.recIndicator.hidden = true;
     clearSession();
     setState("done");
     announce("Time's up.");
+
+    if (!activeRecorder) { clearReview(); showRecordNote(recordNoteText); return; }
+
+    var recorder = activeRecorder;
+    activeRecorder = null;
+    recorder.stop().then(function (capture) {
+      lastCapture = capture;
+      lastCapture.topic = topic;
+      lastCapture.notes = lastNotes;
+      renderReview(capture, topic);
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Review: score the delivery, offer playback, and build the export.
+  // ---------------------------------------------------------------
+  function renderReview(capture, topic) {
+    els.transcript.value = capture.transcript || "";
+    els.transcriptHint.textContent = capture.transcript
+      ? "— auto-transcribed, edit anything it got wrong"
+      : (capture.recognitionSupported
+          ? "— nothing was picked up; type what you said"
+          : "— your browser can't transcribe; type what you said (Chrome or Safari can do it for you)");
+
+    if (capture.audioBlob && capture.audioBlob.size) {
+      if (playbackUrl) URL.revokeObjectURL(playbackUrl);
+      playbackUrl = URL.createObjectURL(capture.audioBlob);
+      els.playback.src = playbackUrl;
+      els.playback.hidden = false;
+      els.exportAudioBtn.hidden = false;
+    } else {
+      els.playback.hidden = true;
+      els.exportAudioBtn.hidden = true;
+    }
+
+    els.review.hidden = false;
+    recomputeScore(capture, topic);
+  }
+
+  function recomputeScore(capture, topic) {
+    var analysis = ColdOpenReport.analyze({
+      transcript: els.transcript.value,
+      durationMs: capture.durationMs,
+      pauses: capture.pauses
+    });
+    lastAnalysis = analysis;
+
+    els.scoreValue.textContent = analysis.score;
+
+    var pauseCount = analysis.pauses.length;
+    var cells = [
+      { value: analysis.hardCount, label: "um / uh / er", flag: analysis.hardCount > 2 },
+      { value: analysis.softCount, label: "like / you know", flag: analysis.softCount > 3 },
+      { value: pauseCount, label: "pauses over 1.5s", flag: pauseCount > 1 },
+      { value: analysis.wpm || "—", label: "words per minute", flag: analysis.wpm > 0 && (analysis.wpm < 110 || analysis.wpm > 170) }
+    ];
+    els.metrics.innerHTML = "";
+    cells.forEach(function (c) {
+      var li = document.createElement("li");
+      if (c.flag) li.className = "is-flag";
+      var b = document.createElement("b");
+      b.textContent = c.value;
+      var span = document.createElement("span");
+      span.textContent = c.label;
+      li.appendChild(b);
+      li.appendChild(span);
+      els.metrics.appendChild(li);
+    });
+
+    els.deductions.innerHTML = "";
+    if (analysis.deductions.length) {
+      els.breakdown.hidden = false;
+      analysis.deductions.forEach(function (d) {
+        var li = document.createElement("li");
+        li.textContent = "−" + d.points + " — " + d.label;
+        els.deductions.appendChild(li);
+      });
+    } else {
+      els.breakdown.hidden = true;
+    }
+  }
+
+  function showRecordNote(text) {
+    if (!text) { els.recordNote.hidden = true; return; }
+    els.recordNote.textContent = text;
+    els.recordNote.hidden = false;
   }
 
   function resetToDraw() {
@@ -377,7 +498,31 @@
   });
   els.readyBtn.addEventListener("click", function () {
     unlockAudio();
-    startSpeaking();
+    lastNotes = els.notes.value;
+    recordNoteText = "";
+
+    if (!recordEnabled) { startSpeaking(); return; }
+
+    // Acquire the mic *before* the clock starts — otherwise the
+    // permission dialog eats the opening seconds of their minute.
+    els.readyBtn.disabled = true;
+    els.readyBtn.textContent = "Getting the mic ready…";
+    var recorder = ColdOpenRecorder.create();
+    recorder.start({}).then(function (result) {
+      els.readyBtn.disabled = false;
+      els.readyBtn.textContent = "I'm Ready — Lights Up";
+      if (result.ok) {
+        activeRecorder = recorder;
+        els.recIndicator.hidden = false;
+      } else {
+        activeRecorder = null;
+        els.recIndicator.hidden = true;
+        recordNoteText = result.reason === "denied"
+          ? "Microphone access was blocked, so this run wasn't recorded or scored. Allow the mic in your browser's address bar to get playback and a report."
+          : "This browser couldn't open the microphone, so this run wasn't recorded or scored. The timer works either way.";
+      }
+      startSpeaking();
+    });
   });
   els.skipBtn.addEventListener("click", function () {
     unlockAudio();
@@ -386,6 +531,39 @@
 
   els.notes.addEventListener("input", function () {
     patchSession({ notes: els.notes.value });
+  });
+
+  // Editing the transcript re-scores immediately — the counts should
+  // always match the words actually on screen.
+  els.transcript.addEventListener("input", function () {
+    if (lastCapture) recomputeScore(lastCapture, lastCapture.topic);
+  });
+
+  els.recordToggle.addEventListener("click", function () {
+    recordEnabled = !recordEnabled;
+    els.recordToggle.setAttribute("aria-pressed", String(recordEnabled));
+    els.recordLabel.textContent = recordEnabled ? "Record & score" : "Recording off";
+  });
+
+  els.exportBtn.addEventListener("click", function () {
+    if (!lastAnalysis || !lastCapture) return;
+    var topic = lastCapture.topic || {};
+    var markdown = ColdOpenReport.buildMarkdown({
+      analysis: lastAnalysis,
+      topic: topic,
+      notes: lastCapture.notes
+    });
+    var name = "cold-open-" + new Date().toISOString().slice(0, 10) + "-" + ColdOpenReport.slugify(topic.text) + ".md";
+    ColdOpenReport.download(name, markdown);
+    announce("Report downloaded.");
+  });
+
+  els.exportAudioBtn.addEventListener("click", function () {
+    if (!lastCapture || !lastCapture.audioBlob) return;
+    var topic = lastCapture.topic || {};
+    var ext = (lastCapture.audioBlob.type || "").indexOf("mp4") > -1 ? "m4a" : "webm";
+    var name = "cold-open-" + new Date().toISOString().slice(0, 10) + "-" + ColdOpenReport.slugify(topic.text) + "." + ext;
+    ColdOpenReport.download(name, lastCapture.audioBlob);
   });
 
   els.alertToggle.addEventListener("click", function () {

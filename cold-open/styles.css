@@ -81,11 +81,13 @@ body{
 /* ---------- app / screens ---------- */
 .app{
   position:relative; z-index:1; flex:1;
-  display:flex; align-items:center; justify-content:center;
+  display:flex; justify-content:center;
   padding: clamp(2rem,6vw,3rem) 1.5rem clamp(3rem,6vw,4rem);
 }
+/* margin:auto rather than align-items:center — it centers the short
+   screens without clipping the tall review screen off the top. */
 .screen{
-  width:100%; max-width:34rem;
+  width:100%; max-width:34rem; margin:auto;
   display:flex; flex-direction:column; align-items:center; text-align:center;
 }
 .screen[hidden]{ display:none; }
@@ -188,6 +190,66 @@ body{
 /* ---------- done screen ---------- */
 .done-title{ font-family:var(--font-d); font-size:clamp(2.4rem,1.9rem + 2vw,3.2rem); letter-spacing:.03em; color:var(--accent); margin-bottom:.8rem; }
 .done-message{ font-size:.95rem; color:var(--ink-soft); max-width:24rem; text-wrap:balance; margin-bottom:.5rem; }
+
+/* ---------- recording indicator (speaking screen) ---------- */
+.rec-indicator{
+  display:flex; align-items:center; gap:.45rem; margin-top:1.2rem;
+  font-size:.72rem; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft);
+}
+.rec-dot{ width:8px; height:8px; border-radius:50%; background:var(--accent-2); flex:0 0 auto; }
+@media (prefers-reduced-motion:no-preference){
+  .rec-dot{ animation:recPulse 1.4s ease-in-out infinite; }
+}
+@keyframes recPulse{ 50%{ opacity:.3; } }
+
+/* ---------- review (done screen) ---------- */
+.review{
+  width:100%; text-align:left; margin:1.6rem 0 .4rem;
+  display:flex; flex-direction:column; gap:1.3rem;
+}
+
+.score-block{ text-align:center; }
+.score-num{
+  font-family:var(--font-d); color:var(--accent); line-height:1;
+  font-size:clamp(3rem,2.2rem + 3.5vw,4.4rem); font-variant-numeric:tabular-nums;
+  text-shadow:0 0 26px rgba(232,169,59,.35);
+}
+.score-num small{ font-size:.3em; color:var(--ink-soft); letter-spacing:.08em; margin-left:.15em; text-shadow:none; }
+.score-caption{ font-size:.76rem; color:var(--ink-soft); margin-top:.4rem; }
+
+/* color-scheme makes the browser's own audio controls render dark,
+   so the player doesn't sit on the stage as a bright white pill. */
+.playback{ width:100%; height:38px; color-scheme:dark; }
+
+.metrics{
+  list-style:none; margin:0; padding:0;
+  display:grid; grid-template-columns:repeat(2,1fr); gap:.5rem;
+}
+.metrics li{
+  background:var(--stage-2); border:1px solid var(--line); border-radius:9px; padding:.6rem .75rem;
+}
+.metrics b{ display:block; font-family:var(--font-d); font-size:1.5rem; line-height:1.1; font-variant-numeric:tabular-nums; }
+.metrics span{ font-size:.66rem; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); }
+.metrics li.is-flag b{ color:var(--accent-2); }
+
+.breakdown{ border:1px solid var(--line); border-radius:9px; background:var(--stage-2); }
+.breakdown summary{ cursor:pointer; padding:.65rem .85rem; font-size:.82rem; font-weight:700; }
+.breakdown ul{ margin:0; padding:0 .85rem .8rem 1.9rem; }
+.breakdown li{ font-size:.82rem; color:var(--ink-soft); line-height:1.6; }
+
+.transcript-label{ display:block; font-size:.72rem; text-transform:uppercase; letter-spacing:.09em; color:var(--ink-soft); margin-bottom:.45rem; }
+.transcript-label span{ text-transform:none; letter-spacing:0; opacity:.85; }
+
+.export-block{ display:flex; flex-direction:column; align-items:center; gap:.6rem; text-align:center; }
+.export-block .ready-btn{ width:100%; }
+.export-hint{ font-size:.74rem; color:var(--ink-soft); line-height:1.55; max-width:26rem; }
+
+.record-note{
+  font-size:.8rem; color:var(--ink-soft); line-height:1.55; max-width:26rem;
+  margin-top:1.2rem; padding:.7rem .9rem; border:1px solid var(--line); border-radius:9px; background:var(--stage-2);
+}
+
+.topbar-controls{ display:flex; gap:.5rem; flex-wrap:wrap; }
 
 /* ---------- footer ---------- */
 .foot{
